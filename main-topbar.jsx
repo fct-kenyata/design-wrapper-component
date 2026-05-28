@@ -4,9 +4,7 @@ import React from "react";
 import { LiveClock } from "@design-pattern/liveclick";
 import sidebarColors, { getLiveSidebarColors, fontStyles } from "@design-pattern/colors";
 
-
-
-// ── Path helpers (pure) ──────────────────────────────────────────────────────
+// ── Path helpers (pure) — UNCHANGED ──────────────────────────────────────────
 
 const normalizePath = (p) => {
   const trimmed = (p || "/").replace(/\/+$/, "");
@@ -33,16 +31,21 @@ const getBreadcrumbs = (p, labels) => {
   return ["Home", ...parts.filter((part, i, arr) => part !== arr[i - 1])];
 };
 
-// ── Component ────────────────────────────────────────────────────────────────
+// ── Component ─────────────────────────────────────────────────────────────────
 
 /**
  * MainTopbar
  *
- * @param {{ 
+ * @param {{
  *   routeLabels?:  Record<string, string>,
  *   pathname?:     string,
  *   leftContent?:  import("react").ReactNode,
  *   rightContent?: import("react").ReactNode,
+ *   slots?:        Array<{
+ *     key:          string,
+ *     node:         import("react").ReactNode,
+ *     placement?:   "left" | "right",
+ *   }>,
  *   style?:        import("react").CSSProperties,
  *   className?:    string,
  * }} props
@@ -52,6 +55,7 @@ export const MainTopbar = ({
   pathname,
   leftContent,
   rightContent,
+  slots        = [],   // ← NEW: generic, optional, default empty
   style,
   className,
 }) => {
@@ -62,33 +66,35 @@ export const MainTopbar = ({
     pathname ??
     (typeof window !== "undefined" ? window.location.pathname : "/");
 
-  const dashboardName = getDashboardName(resolvedPath, routeLabels);
-
+  const dashboardName    = getDashboardName(resolvedPath, routeLabels);
   const visibleBreadcrumbs = getBreadcrumbs(resolvedPath, routeLabels).filter(
     (crumb, i, arr) => i === 0 || crumb !== arr[i - 1]
   );
+
+  // ── NEW: split slots by placement (default = "left") ─────────────────────
+  const leftSlots  = slots.filter((s) => s.placement !== "right");
+  const rightSlots = slots.filter((s) => s.placement === "right");
 
   return (
     <div
       className={`w-full  border-b px-6 py-4 ${className ?? ""}`}
       style={{
         backgroundColor: colors.background,
-        borderColor: colors.border,
+        borderColor:     colors.border,
         ...style,
       }}
     >
       <div className="flex items-center justify-between gap-4">
 
-        {/* ── LEFT: Title › Breadcrumbs › leftContent slot ── */}
+        {/* ── LEFT: Title › Breadcrumbs › leftContent › left slots ── */}
         <div className="flex items-center gap-8 min-w-0">
 
-          {/* Title + Breadcrumbs */}
+          {/* Title + Breadcrumbs — UNCHANGED */}
           <div className="flex flex-col min-w-0">
             <h1
               style={{
                 ...fontStyles.heading2,
-                color: colors.primary,
-               
+                color:  colors.primary,
                 margin: 0,
               }}
             >
@@ -120,25 +126,39 @@ export const MainTopbar = ({
             </div>
           </div>
 
-          {/* Slot: leftContent — e.g. tenant switcher, context selector */}
+          {/* Slot: leftContent — UNCHANGED */}
           {leftContent && (
             <div className="flex items-center gap-3 flex-shrink-0">
               {leftContent}
             </div>
           )}
+
+          {/* ── NEW: generic left slots ── */}
+          {leftSlots.map((s) => (
+            <div key={s.key} className="flex items-center gap-3 flex-shrink-0">
+              {s.node}
+            </div>
+          ))}
         </div>
 
-        {/* ── RIGHT: rightContent slot + Pulse + Clock ── */}
+        {/* ── RIGHT: right slots › rightContent › Pulse + Clock ── */}
         <div className="flex items-center gap-4 flex-shrink-0">
 
-          {/* Slot: rightContent — e.g. timeline filter, action controls */}
+          {/* ── NEW: generic right slots ── */}
+          {rightSlots.map((s) => (
+            <div key={s.key} className="flex items-center gap-3">
+              {s.node}
+            </div>
+          ))}
+
+          {/* Slot: rightContent — UNCHANGED */}
           {rightContent && (
             <div className="flex items-center gap-3">
               {rightContent}
             </div>
           )}
 
-          {/* Always-present: pulse dot + live clock */}
+          {/* Always-present: pulse dot + live clock — UNCHANGED */}
           <div className="flex items-center gap-2">
             <div
               className="w-2 h-2 rounded-full animate-pulse"

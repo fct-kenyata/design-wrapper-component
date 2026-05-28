@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import worldMap from '../map/world.json';
@@ -23,6 +23,8 @@ const withAlpha = (hex, alpha) => {
 
 export default function GeoLocationMapWrapper({
     locations = [],
+    publicLocations = null,    // preferred: explicit public array from backend
+    privateLocations = null,   // preferred: explicit private/internal array from backend
     flows = [],
     logEntries = [],
     summary = {},
@@ -55,8 +57,16 @@ export default function GeoLocationMapWrapper({
     const tileBorder = withAlpha(sidebarColors.primary, 0.22);
     const tileBg = withAlpha(sidebarColors.backgroundSoft, 0.72);
 
-    const points = useMemo(() => (
-        (Array.isArray(locations) ? locations : [])
+    // ── Public threat-intel points ────────────────────────────────────────
+    // Use publicLocations[] when the new backend supplies it (no _isPrivate
+    // entries, coords already guaranteed to be for public IPs).
+    // Fall back to filtering !_isPrivate from the legacy locations[] prop so
+    // the component stays compatible with backends that don't split arrays yet.
+    const points = useMemo(() => {
+        const source = Array.isArray(publicLocations)
+            ? publicLocations
+            : (Array.isArray(locations) ? locations : []).filter((loc) => !loc._isPrivate);
+        return source
             .filter((loc) => loc.latitude != null && loc.longitude != null)
             .map((loc) => ({
                 name: loc.country,
@@ -65,8 +75,28 @@ export default function GeoLocationMapWrapper({
                 destCount: loc.destCount || 0,
                 cities: loc.cities || [],
                 ips: loc.ips || [],
-            }))
-    ), [locations]);
+            }));
+    }, [locations, publicLocations]);
+
+    // ── Private / internal network points ────────────────────────────────
+    // Use privateLocations[] when provided; otherwise filter locations[].
+    // Entries with null coords are excluded — they cannot be plotted, but
+    // their existence is still detected by hasAnyPrivateData below.
+    const privatePoints = useMemo(() => {
+        const source = Array.isArray(privateLocations)
+            ? privateLocations
+            : (Array.isArray(locations) ? locations : []).filter((loc) => loc._isPrivate === true);
+        return source
+            .filter((loc) => loc.latitude != null && loc.longitude != null)
+            .map((loc) => ({
+                name: loc.country,
+                value: [loc.longitude, loc.latitude, loc.totalCount || 0],
+                sourceCount: loc.sourceCount || 0,
+                destCount: loc.destCount || 0,
+                cities: loc.cities || [],
+                ips: loc.ips || [],
+            }));
+    }, [locations, privateLocations]);
 
     const lines = useMemo(() => (
         (Array.isArray(flows) ? flows : [])
@@ -181,7 +211,82 @@ export default function GeoLocationMapWrapper({
         }))
     ), [flowVisuals]);
 
-    const hasData = points.length > 0 || lines.length > 0;
+    // ── Three-state data classification ──────────────────────────────────────
+    //
+    //   A. hasPublicGeoPoints   → render world map with threat-intel markers
+    //   B1 hasPrivateGeoPoints  → render world map with gray internal markers
+    //   B2 isPrivateOnlyNoCoords→ render internal-network banner (no coords)
+    //   C. !hasAnyGeolocationData → show noDataComponent (true empty)
+
+    /** State A — public coordinates are available to plot */
+    const hasPublicGeoPoints = points.length > 0 || lines.length > 0;
+
+    /** State B1 — private coords available (tenant defaults matched) */
+    const hasPrivateGeoPoints = privatePoints.length > 0;
+
+    /**
+     * B-wide — any private data exists regardless of whether coords are known.
+     * Resolution order (most reliable first):
+     *   1. summary.privateIpCount from the new backend
+     *   2. privateLocations[] from the new backend
+     *   3. Legacy: scan locations[] and logEntries[] for _isPrivate flag
+     */
+    const hasAnyPrivateData = useMemo(() => {
+        if (typeof summary.privateIpCount === 'number') return summary.privateIpCount > 0;
+        if (Array.isArray(privateLocations) && privateLocations.length > 0) return true;
+        const locs = Array.isArray(locations) ? locations : [];
+        const logs = Array.isArray(logEntries) ? logEntries : [];
+        return (
+            locs.some((l) => l._isPrivate === true)
+            || logs.some((e) => e.source?._isPrivate || e.destination?._isPrivate)
+        );
+    }, [summary.privateIpCount, privateLocations, locations, logEntries]);
+
+    /** Union gate — anything at all counts as data */
+    const hasAnyGeolocationData = (
+        hasPublicGeoPoints
+        || hasPrivateGeoPoints
+        || hasAnyPrivateData
+        || (summary.publicIpCount  > 0)
+        || (summary.privateIpCount > 0)
+    );
+
+    /**
+     * State B2 — private data exists but zero plottable coordinates.
+     * Use summary.hasPrivateOnlyData when the new backend supplies it;
+     * otherwise fall back to computing from local state.
+     */
+    const isPrivateOnlyNoCoords = (
+        typeof summary.hasPrivateOnlyData === 'boolean'
+            ? (summary.hasPrivateOnlyData && !hasPublicGeoPoints && !hasPrivateGeoPoints)
+            : (hasAnyPrivateData && !hasPublicGeoPoints && !hasPrivateGeoPoints)
+    );
+
+    // ── Dev-mode debug log ────────────────────────────────────────────────────
+    useEffect(() => {
+        if (process.env.NODE_ENV === 'production') return;
+        const locs = Array.isArray(locations) ? locations : [];
+        const logs = Array.isArray(logEntries) ? logEntries : [];
+        // eslint-disable-next-line no-console
+        console.debug('[GeoLocationMap] data state →', {
+            branch: isPrivateOnlyNoCoords ? 'B2-private-no-coords'
+                : hasPrivateGeoPoints    ? 'B1-private-with-coords'
+                : hasPublicGeoPoints     ? 'A-public'
+                : 'C-empty',
+            locationCount:         locs.length,
+            publicLocationsCount:  Array.isArray(publicLocations)  ? publicLocations.length  : '(legacy)',
+            privateLocationsCount: Array.isArray(privateLocations) ? privateLocations.length : '(legacy)',
+            logEntryCount:         logs.length,
+            publicPointCount:      points.length,
+            privatePointCount:     privatePoints.length,
+            lineCount:             lines.length,
+            summaryPublicIpCount:  summary.publicIpCount,
+            summaryPrivateIpCount: summary.privateIpCount,
+            summaryHasPrivateOnly: summary.hasPrivateOnlyData,
+        });
+    }, [locations, publicLocations, privateLocations, logEntries, points, privatePoints,
+        lines, hasPublicGeoPoints, hasPrivateGeoPoints, hasAnyPrivateData,
+        isPrivateOnlyNoCoords, summary]);
 
     const option = useMemo(() => ({
         backgroundColor: 'transparent',
@@ -202,6 +307,24 @@ export default function GeoLocationMapWrapper({
             padding: [10, 14],
             extraCssText: 'max-width:300px;white-space:normal;box-shadow:0 12px 30px rgba(0, 0, 0, 0.45);',
             formatter: (params) => {
+                // Private / internal series — check by name first because it
+                // is also an effectScatter series; name check takes precedence.
+                if (params.seriesName === 'Private / Internal') {
+                    const data = params.data || {};
+                    return `
+                        <div style="min-width:200px;">
+                            <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:${sidebarColors.textPrimary};padding-bottom:6px;border-bottom:1px solid ${withAlpha(sidebarColors.borderStrong || sidebarColors.border, 0.45)};">
+                                ${params.name}&nbsp;<span style="color:#999;font-size:11px;font-weight:400;">(Internal Network)</span>
+                            </div>
+                            <div style="color:#999;font-size:11px;margin-bottom:6px;">Private IP — coordinates are approximate</div>
+                            <div style="display:grid;gap:4px;">
+                                <div style="display:flex;justify-content:space-between;"><span style="color:${sidebarColors.textSecondary};">Total Events</span><strong style="color:#bbb;">${data.value?.[2] || 0}</strong></div>
+                                <div style="display:flex;justify-content:space-between;"><span style="color:${sidebarColors.textSecondary};">As Source</span><strong style="color:#bbb;">${data.sourceCount || 0}</strong></div>
+                                <div style="display:flex;justify-content:space-between;"><span style="color:${sidebarColors.textSecondary};">As Destination</span><strong style="color:#bbb;">${data.destCount || 0}</strong></div>
+                            </div>
+                        </div>
+                    `;
+                }
                 if (params.seriesType === 'effectScatter') {
                     const data = params.data || {};
                     return `
@@ -429,8 +552,53 @@ export default function GeoLocationMapWrapper({
                 },
                 data: points,
             },
+            // ── Private / internal network points ────────────────────────────
+            // Hollow gray markers — visually distinct from public threat-red
+            // markers so analysts can tell this is internal traffic at a glance.
+            // Only rendered when privatePoints[] has plottable coordinates
+            // (i.e. tenant geo defaults matched the private IP's tenant).
+            {
+                name: 'Private / Internal',
+                type: 'effectScatter',
+                coordinateSystem: 'geo',
+                zlevel: 3,
+                rippleEffect: {
+                    brushType: 'stroke',
+                    scale: 2.6,
+                    period: 5.5,
+                    color: 'rgba(160, 160, 160, 0.45)',
+                },
+                label: {
+                    show: true,
+                    formatter: '{b}',
+                    position: 'top',
+                    color: '#999',
+                    ...fontStyles.bodySmall,
+                    fontWeight: 'bold',
+                    distance: 5,
+                    textShadowColor: 'rgba(0, 0, 0, 0.55)',
+                    textShadowBlur: 3,
+                },
+                symbolSize: (val) => Math.max(6, Math.min((val?.[2] || 0) / 7, 12)),
+                itemStyle: {
+                    color: 'rgba(160, 160, 160, 0.1)',
+                    borderColor: 'rgba(180, 180, 180, 0.7)',
+                    borderWidth: 1.5,
+                    borderType: 'dashed',
+                    shadowBlur: 6,
+                    shadowColor: 'rgba(160, 160, 160, 0.35)',
+                },
+                emphasis: {
+                    scale: 1.1,
+                    itemStyle: {
+                        shadowBlur: 8,
+                        shadowColor: 'rgba(160, 160, 160, 0.5)',
+                    },
+                },
+                data: privatePoints,
+            },
         ],
-    }), [zoomEnabled, flowVisuals, points, selectedRegion, sourceNodes, destinationNodes, accent, flowColor, flowHighlight, threatColor]);
+    }), [zoomEnabled, flowVisuals, points, privatePoints, selectedRegion, sourceNodes, destinationNodes, accent, flowColor, flowHighlight, threatColor]);
 
     if (isLoading) {
         return loadingComponent;
@@ -450,7 +618,9 @@ export default function GeoLocationMapWrapper({
         );
     }
 
-    if (!hasData) {
+    // State C: truly empty — no public data, no private data, no log entries.
+    // This is the only branch that shows the generic "No geolocation data" message.
+    if (!hasAnyGeolocationData) {
         return (
             <div
                 style={{
@@ -577,34 +747,86 @@ export default function GeoLocationMapWrapper({
                 </div>
             ) : null}
 
-            <div
-                style={{
-                    position: 'relative',
-                    borderRadius: 12,
-                    border: `1px solid ${withAlpha(primary, 0.28)}`,
-                    background: `linear-gradient(180deg, ${withAlpha(sidebarColors.backgroundSoft, 0.5)} 0%, ${withAlpha(sidebarColors.background, 0.75)} 100%)`,
-                    padding: spacing.xs,
-                    marginBottom: spacing.sm,
-                }}
-            >
-                <ReactECharts
-                    option={option}
-                    style={{ height, width: '100%' }}
-                    onEvents={{
-                        click: (params) => {
-                            const clickedName = params?.name || '';
-                            if (clickedName) {
-                                setSelectedRegion((prev) => (prev === clickedName ? '' : clickedName));
-                            }
-
-                            if (params.componentType === 'series' || params.componentType === 'geo') {
-                                onClickCountry?.(clickedName, params);
-                            }
-                        },
+            {/* ── State B2: private data, no plottable coords ────────────────────
+                 Show an internal-network banner instead of the ECharts canvas.
+                 The log-entry list below still renders so analysts can see
+                 which IPs and timestamps were involved.                    */}
+            {isPrivateOnlyNoCoords ? (
+                <div
+                    style={{
+                        position: 'relative',
+                        borderRadius: 12,
+                        border: `1px dashed ${withAlpha(primary, 0.22)}`,
+                        background: `linear-gradient(180deg, ${withAlpha(sidebarColors.backgroundSoft, 0.35)} 0%, ${withAlpha(sidebarColors.background, 0.55)} 100%)`,
+                        padding: `${spacing.lg} ${spacing.md}`,
+                        marginBottom: spacing.sm,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minHeight: 180,
+                        textAlign: 'center',
+                        gap: spacing.sm,
                     }}
-                    opts={{ renderer: 'canvas' }}
-                />
-            </div>
+                >
+                    <div style={{ fontSize: 32, lineHeight: 1, opacity: 0.4 }}>🔒</div>
+                    <div
+                        style={{
+                            color: sidebarColors.textSecondary,
+                            ...fontStyles.body,
+                            fontWeight: 600,
+                            maxWidth: 440,
+                        }}
+                    >
+                        {noDataComponent}
+                    </div>
+                    <div
+                        style={{
+                            color: sidebarColors.textSecondary,
+                            ...fontStyles.bodySmall,
+                            maxWidth: 440,
+                            lineHeight: 1.6,
+                            opacity: 0.65,
+                        }}
+                    >
+                        {summary.privateIpCount > 0
+                            ? `${summary.privateIpCount.toLocaleString()} internal IP${summary.privateIpCount !== 1 ? 's' : ''} detected. Public geolocation data unavailable.`
+                            : 'All detected traffic originated from private or internal network addresses.'
+                        }
+                        {logEntries.length > 0 ? ' Log details are shown below.' : ''}
+                    </div>
+                </div>
+            ) : (
+                /* ── States A & B1: plottable data exists — render the map ── */
+                <div
+                    style={{
+                        position: 'relative',
+                        borderRadius: 12,
+                        border: `1px solid ${withAlpha(primary, 0.28)}`,
+                        background: `linear-gradient(180deg, ${withAlpha(sidebarColors.backgroundSoft, 0.5)} 0%, ${withAlpha(sidebarColors.background, 0.75)} 100%)`,
+                        padding: spacing.xs,
+                        marginBottom: spacing.sm,
+                    }}
+                >
+                    <ReactECharts
+                        option={option}
+                        style={{ height, width: '100%' }}
+                        onEvents={{
+                            click: (params) => {
+                                const clickedName = params?.name || '';
+                                if (clickedName) {
+                                    setSelectedRegion((prev) => (prev === clickedName ? '' : clickedName));
+                                }
+
+                                if (params.componentType === 'series' || params.componentType === 'geo') {
+                                    onClickCountry?.(clickedName, params);
+                                }
+                            },
+                        }}
+                        opts={{ renderer: 'canvas' }}
+                    />
+                </div>
+            )}
 
             {showFlowList && flows.length > 0 ? (
                 <div
