@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import worldMap from '../map/world.json';
@@ -25,6 +25,7 @@ export default function GeoLocationMapWrapper({
     locations = [],
     publicLocations = null,    // preferred: explicit public array from backend
     privateLocations = null,   // preferred: explicit private/internal array from backend
+    privateIpList = [],        // unique private IPs with role + topConnectedPublicIp
     flows = [],
     logEntries = [],
     summary = {},
@@ -34,6 +35,7 @@ export default function GeoLocationMapWrapper({
     onClickCountry,
     loadingComponent = <EagleEyeLoader size={80} text="Loading map" theme="dark" />,
     noDataComponent = 'No geolocation data available',
+    emptyMessage = null,         // overlay text shown when widget has no data at all
     height = 600,
     showSummary = true,
     showFlowList = true,
@@ -41,6 +43,20 @@ export default function GeoLocationMapWrapper({
 }) {
     const [zoomEnabled, setZoomEnabled] = useState(false);
     const [selectedRegion, setSelectedRegion] = useState('');
+    const chartRef = useRef(null);
+
+    console.log('[GeoMap] props received:', {
+        publicLocations: publicLocations?.length,
+        privateIpList: privateIpList?.length,
+        flows: flows?.length,
+        logEntries: logEntries?.length,
+        summary,
+    });
+
+    useEffect(() => {
+        const el = chartRef.current?.ele || chartRef.current?.getEchartsInstance?.().getDom?.();
+        console.log('[GeoMap] container size:', el?.clientWidth, 'x', el?.clientHeight);
+    }, [publicLocations]);
 
     // ── Theme-derived tokens ─────────────────────────────────────────────
     const accent = sidebarColors.accent || sidebarColors.primary;
@@ -97,6 +113,40 @@ export default function GeoLocationMapWrapper({
                 ips: loc.ips || [],
             }));
     }, [locations, privateLocations]);
+
+    // ── Unmapped public entries (null lat/lon from geo API) ───────────────────
+    // Cannot be plotted, but we still list their country names in a footer.
+    const unmapped = useMemo(() => {
+        const source = Array.isArray(publicLocations)
+            ? publicLocations
+            : (Array.isArray(locations) ? locations : []).filter((l) => !l._isPrivate);
+        return source.filter((l) => l.latitude == null || l.longitude == null);
+    }, [locations, publicLocations]);
+
+    // ── Internal arcs: private IP → best public endpoint ─────────────────────
+    // Each entry in privateIpList has a topConnectedPublicIp. We resolve that
+    // IP's coordinates from logEntries and draw a dashed arc from a fixed
+    // off-screen anchor (representing "internal network") to that endpoint.
+    const internalArcsData = useMemo(() => {
+        const ipCoordMap = new Map();
+        for (const entry of (Array.isArray(logEntries) ? logEntries : [])) {
+            const src = entry.source;
+            const dst = entry.destination;
+            const pub = (src && !src._isPrivate) ? src : ((dst && !dst._isPrivate) ? dst : null);
+            if (pub?.ip && pub.latitude != null && pub.longitude != null) {
+                if (!ipCoordMap.has(pub.ip)) {
+                    ipCoordMap.set(pub.ip, [pub.longitude, pub.latitude]);
+                }
+            }
+        }
+        return (Array.isArray(privateIpList) ? privateIpList : [])
+            .filter((p) => p.topConnectedPublicIp && ipCoordMap.has(p.topConnectedPublicIp))
+            .map((p) => ({
+                coords: [[0, 20], ipCoordMap.get(p.topConnectedPublicIp)],
+                ip: p.ip,
+                count: p.count,
+            }));
+    }, [privateIpList, logEntries]);
 
     const lines = useMemo(() => (
         (Array.isArray(flows) ? flows : [])
@@ -219,7 +269,7 @@ export default function GeoLocationMapWrapper({
     //   C. !hasAnyGeolocationData → show noDataComponent (true empty)
 
     /** State A — public coordinates are available to plot */
-    const hasPublicGeoPoints = points.length > 0 || lines.length > 0;
+    const hasPublicGeoPoints = points.length > 0;  // do NOT gate on lines.length
 
     /** State B1 — private coords available (tenant defaults matched) */
     const hasPrivateGeoPoints = privatePoints.length > 0;
@@ -552,53 +602,34 @@ export default function GeoLocationMapWrapper({
                 },
                 data: points,
             },
-            // ── Private / internal network points ────────────────────────────
-            // Hollow gray markers — visually distinct from public threat-red
-            // markers so analysts can tell this is internal traffic at a glance.
-            // Only rendered when privatePoints[] has plottable coordinates
-            // (i.e. tenant geo defaults matched the private IP's tenant).
+            // ── Private / Internal series intentionally omitted ────────────────
+            // Private IPs have no reliable public coordinates and must not appear
+            // on the geographic map. They are shown in the dedicated private-IP
+            // panel below the map instead.
+
+            // ── Internal arcs: private→public dashed lines ────────────────────
+            // Drawn from a fixed off-map anchor [0,20] to each top-connected
+            // public IP, using grey dashed style so they are visually distinct
+            // from the red flows-based arcs. silent:true → no tooltips.
             {
-                name: 'Private / Internal',
-                type: 'effectScatter',
+                name: 'Internal Arcs',
+                type: 'lines',
                 coordinateSystem: 'geo',
-                zlevel: 3,
-                rippleEffect: {
-                    brushType: 'stroke',
-                    scale: 2.6,
-                    period: 5.5,
-                    color: 'rgba(160, 160, 160, 0.45)',
+                zlevel: 2,
+                effect: { show: false },
+                lineStyle: {
+                    width: 1.2,
+                    opacity: 0.55,
+                    curveness: 0.3,
+                    color: 'rgba(180, 180, 180, 0.7)',
+                    type: 'dashed',
                 },
-                label: {
-                    show: true,
-                    formatter: '{b}',
-                    position: 'top',
-                    color: '#999',
-                    ...fontStyles.bodySmall,
-                    fontWeight: 'bold',
-                    distance: 5,
-                    textShadowColor: 'rgba(0, 0, 0, 0.55)',
-                    textShadowBlur: 3,
-                },
-                symbolSize: (val) => Math.max(6, Math.min((val?.[2] || 0) / 7, 12)),
-                itemStyle: {
-                    color: 'rgba(160, 160, 160, 0.1)',
-                    borderColor: 'rgba(180, 180, 180, 0.7)',
-                    borderWidth: 1.5,
-                    borderType: 'dashed',
-                    shadowBlur: 6,
-                    shadowColor: 'rgba(160, 160, 160, 0.35)',
-                },
-                emphasis: {
-                    scale: 1.1,
-                    itemStyle: {
-                        shadowBlur: 8,
-                        shadowColor: 'rgba(160, 160, 160, 0.5)',
-                    },
-                },
-                data: privatePoints,
+                data: internalArcsData,
+                silent: true,
             },
         ],
-    }), [zoomEnabled, flowVisuals, points, privatePoints, selectedRegion, sourceNodes, destinationNodes, accent, flowColor, flowHighlight, threatColor]);
+    }), [zoomEnabled, flowVisuals, points, selectedRegion, sourceNodes, destinationNodes,
+        accent, flowColor, flowHighlight, threatColor, internalArcsData]);
 
     if (isLoading) {
         return loadingComponent;
@@ -619,21 +650,8 @@ export default function GeoLocationMapWrapper({
     }
 
     // State C: truly empty — no public data, no private data, no log entries.
-    // This is the only branch that shows the generic "No geolocation data" message.
-    if (!hasAnyGeolocationData) {
-        return (
-            <div
-                style={{
-                    color: sidebarColors.textSecondary,
-                    padding: spacing.lg,
-                    ...fontStyles.body,
-                }}
-            >
-                {noDataComponent}
-            </div>
-        );
-    }
-
+    // Render the map shell with an inline message instead of a standalone empty widget.
+    // The product owner never wants users to see a blank "No Data Available" card.
     return (
         <div
             style={{
@@ -715,7 +733,7 @@ export default function GeoLocationMapWrapper({
                     >
                         <p style={{ margin: 0, color: sidebarColors.textSecondary, ...fontStyles.caption }}>Countries</p>
                         <p style={{ margin: `${spacing.xs} 0 0`, color: sidebarColors.textPrimary, ...fontStyles.heading6 }}>
-                            {(summary.totalCountries || locations.length).toLocaleString()}
+                            {(summary.totalPublicCountries ?? (Array.isArray(publicLocations) ? publicLocations.length : points.length)).toLocaleString()}
                         </p>
                     </div>
                     <div
@@ -726,7 +744,7 @@ export default function GeoLocationMapWrapper({
                             padding: `${spacing.sm} ${spacing.md}`,
                         }}
                     >
-                        <p style={{ margin: 0, color: sidebarColors.textSecondary, ...fontStyles.caption }}>Alerts</p>
+                        <p style={{ margin: 0, color: sidebarColors.textSecondary, ...fontStyles.caption }}>Alert Logs</p>
                         <p style={{ margin: `${spacing.xs} 0 0`, color: threatColor, ...fontStyles.heading6 }}>
                             {(summary.totalAlerts || 0).toLocaleString()}
                         </p>
@@ -744,13 +762,26 @@ export default function GeoLocationMapWrapper({
                             {(summary.totalFlows || flows.length).toLocaleString()}
                         </p>
                     </div>
+                    {(summary.privateIpCount ?? (Array.isArray(privateIpList) ? privateIpList.length : 0)) > 0 && (
+                        <div
+                            style={{
+                                border: `1px solid ${panelBorder}`,
+                                borderRadius: 10,
+                                backgroundColor: panelBg,
+                                padding: `${spacing.sm} ${spacing.md}`,
+                            }}
+                        >
+                            <p style={{ margin: 0, color: sidebarColors.textSecondary, ...fontStyles.caption }}>Private IPs</p>
+                            <p style={{ margin: `${spacing.xs} 0 0`, color: infoColor, ...fontStyles.heading6 }}>
+                                {(summary.privateIpCount ?? privateIpList.length).toLocaleString()}
+                            </p>
+                        </div>
+                    )}
                 </div>
             ) : null}
 
-            {/* ── State B2: private data, no plottable coords ────────────────────
-                 Show an internal-network banner instead of the ECharts canvas.
-                 The log-entry list below still renders so analysts can see
-                 which IPs and timestamps were involved.                    */}
+            {/* ── State C / no-public-data: inline message inside map shell ──────
+                 Never return a standalone empty-state widget.               */}
             {isPrivateOnlyNoCoords ? (
                 <div
                     style={{
@@ -769,7 +800,9 @@ export default function GeoLocationMapWrapper({
                         gap: spacing.sm,
                     }}
                 >
-                    <div style={{ fontSize: 32, lineHeight: 1, opacity: 0.4 }}>🔒</div>
+                    <div style={{ fontSize: 32, lineHeight: 1, opacity: 0.4 }}>
+                        {!hasAnyGeolocationData ? '🔍' : '🔒'}
+                    </div>
                     <div
                         style={{
                             color: sidebarColors.textSecondary,
@@ -778,7 +811,9 @@ export default function GeoLocationMapWrapper({
                             maxWidth: 440,
                         }}
                     >
-                        {noDataComponent}
+                        {!hasAnyGeolocationData
+                            ? 'No threat events in selected range'
+                            : noDataComponent}
                     </div>
                     <div
                         style={{
@@ -789,11 +824,12 @@ export default function GeoLocationMapWrapper({
                             opacity: 0.65,
                         }}
                     >
-                        {summary.privateIpCount > 0
-                            ? `${summary.privateIpCount.toLocaleString()} internal IP${summary.privateIpCount !== 1 ? 's' : ''} detected. Public geolocation data unavailable.`
-                            : 'All detected traffic originated from private or internal network addresses.'
-                        }
-                        {logEntries.length > 0 ? ' Log details are shown below.' : ''}
+                        {!hasAnyGeolocationData
+                            ? 'Adjust the time range or check that your index contains high/critical severity events.'
+                            : summary.privateIpCount > 0
+                                ? `${summary.privateIpCount.toLocaleString()} internal IP${summary.privateIpCount !== 1 ? 's' : ''} detected. Public geolocation data unavailable.`
+                                : 'All detected traffic originated from private or internal network addresses.'}
+                        {logEntries.length > 0 && hasAnyGeolocationData ? ' Log details are shown below.' : ''}
                     </div>
                 </div>
             ) : (
@@ -808,7 +844,20 @@ export default function GeoLocationMapWrapper({
                         marginBottom: spacing.sm,
                     }}
                 >
+                    {console.log('[GeoMap] ECharts option:', JSON.stringify({
+                        geoExists: !!option.geo,
+                        geoMap: option.geo?.map,
+                        seriesCount: option.series?.length,
+                        series0Type: option.series?.[0]?.type,
+                        series0CoordSystem: option.series?.[0]?.coordinateSystem,
+                        series0DataLen: option.series?.[0]?.data?.length,
+                        series0Data0: option.series?.[0]?.data?.[0],
+                        series1Type: option.series?.[1]?.type,
+                        series1DataLen: option.series?.[1]?.data?.length,
+                        series1Data0: option.series?.[1]?.data?.[0],
+                    }, null, 2))}
                     <ReactECharts
+                        ref={chartRef}
                         option={option}
                         style={{ height, width: '100%' }}
                         onEvents={{
@@ -825,6 +874,121 @@ export default function GeoLocationMapWrapper({
                         }}
                         opts={{ renderer: 'canvas' }}
                     />
+                    {/* emptyMessage overlay: shown when there is genuinely no data */}
+                    {emptyMessage && (
+                        <div
+                            style={{
+                                position: 'absolute',
+                                inset: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                pointerEvents: 'none',
+                                zIndex: 5,
+                            }}
+                        >
+                            <span
+                                style={{
+                                    color: sidebarColors.textSecondary,
+                                    ...fontStyles.body,
+                                    background: withAlpha(sidebarColors.backgroundSoft, 0.88),
+                                    borderRadius: 8,
+                                    padding: `${spacing.sm} ${spacing.md}`,
+                                }}
+                            >
+                                {emptyMessage}
+                            </span>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Unmapped countries footer: countries returned by backend that have
+                 no geo coordinates available so they couldn't be plotted on the map */}
+            {unmapped.length > 0 && (
+                <p
+                    style={{
+                        color: sidebarColors.textMuted,
+                        ...fontStyles.caption,
+                        textAlign: 'center',
+                        margin: `0 0 ${spacing.sm}`,
+                        opacity: 0.7,
+                    }}
+                >
+                    Unmapped (no coordinates): {unmapped.map((l) => l.country).join(', ')}
+                </p>
+            )}
+
+            {/* ── Private IP panel ──────────────────────────────────────────────────
+                 Shows internal/private IPs in a dedicated list panel.
+                 Private IPs are NOT plotted on the geographic map.       */}
+            {privateIpList.length > 0 && (
+                <div
+                    style={{
+                        position: 'relative',
+                        marginTop: spacing.md,
+                        padding: spacing.md,
+                        borderRadius: 12,
+                        border: `1px solid ${withAlpha(sidebarColors.border, 0.5)}`,
+                        backgroundColor: withAlpha(sidebarColors.backgroundSoft, 0.6),
+                    }}
+                >
+                    <h3 style={{ ...fontStyles.heading6, color: sidebarColors.textSecondary, margin: `0 0 ${spacing.sm}`, display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+                        <span style={{ fontSize: 14, opacity: 0.7 }}>🔒</span>
+                        Internal / Private IPs
+                        <span style={{ ...fontStyles.caption, color: sidebarColors.textMuted, fontWeight: 400, marginLeft: spacing.xs }}>
+                            ({privateIpList.length} unique)
+                        </span>
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: spacing.sm }}>
+                        {privateIpList.slice(0, 12).map((entry) => (
+                            <div
+                                key={entry.ip}
+                                style={{
+                                    borderRadius: 8,
+                                    border: `1px solid ${withAlpha(sidebarColors.border, 0.35)}`,
+                                    padding: `${spacing.sm} ${spacing.md}`,
+                                    backgroundColor: withAlpha(sidebarColors.surface, 0.5),
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    ...fontStyles.bodySmall,
+                                }}
+                            >
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <span style={{ color: sidebarColors.textPrimary, fontFamily: 'monospace', fontSize: 12 }}>
+                                        {entry.ip}
+                                    </span>
+                                    {entry.topConnectedPublicIp && (
+                                        <span style={{ color: sidebarColors.textMuted, fontSize: 11 }}>
+                                            → {entry.topConnectedPublicIp}
+                                        </span>
+                                    )}
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                                    <span
+                                        style={{
+                                            borderRadius: 4,
+                                            padding: '1px 6px',
+                                            backgroundColor: withAlpha(sidebarColors.border, 0.35),
+                                            color: sidebarColors.textSecondary,
+                                            fontSize: 10,
+                                            fontWeight: 700,
+                                            textTransform: 'uppercase',
+                                        }}
+                                    >
+                                        {entry.role}
+                                    </span>
+                                    <span style={{ color: sidebarColors.textMuted, fontSize: 11 }}>{entry.count} events</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {privateIpList.length > 12 && (
+                        <p style={{ ...fontStyles.caption, color: sidebarColors.textMuted, margin: `${spacing.sm} 0 0`, textAlign: 'center' }}>
+                            … and {privateIpList.length - 12} more internal IPs
+                        </p>
+                    )}
                 </div>
             )}
 
@@ -911,6 +1075,22 @@ export default function GeoLocationMapWrapper({
                                     >
                                         {entry.severity}
                                     </span>
+                                    {/* [INTERNAL] badge for entries that involve a private/RFC-1918 IP */}
+                                    {(entry.source?._isPrivate || entry.destination?._isPrivate) && (
+                                        <span
+                                            style={{
+                                                borderRadius: 999,
+                                                padding: `${spacing.xs} ${spacing.sm}`,
+                                                backgroundColor: withAlpha(sidebarColors.border, 0.4),
+                                                color: sidebarColors.textSecondary,
+                                                ...fontStyles.caption,
+                                                fontWeight: 700,
+                                                letterSpacing: '0.04em',
+                                            }}
+                                        >
+                                            [INTERNAL]
+                                        </span>
+                                    )}
                                     <span style={{ color: sidebarColors.textMuted, ...fontStyles.caption }}>
                                         {entry.timestamp ? new Date(entry.timestamp).toLocaleString() : ''}
                                     </span>
