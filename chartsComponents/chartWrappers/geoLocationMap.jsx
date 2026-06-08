@@ -1,11 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
-import worldMap from '../map/world.json';
 import sidebarColors, { chartColors, fontStyles } from '../../colors';
 import { spacing } from '../../spacing';
 import EagleEyeLoader from './EagleEyeLoader';
-echarts.registerMap('world', worldMap);
 
 const withAlpha = (hex, alpha) => {
     if (typeof hex !== 'string') return hex;
@@ -43,7 +41,69 @@ export default function GeoLocationMapWrapper({
 }) {
     const [zoomEnabled, setZoomEnabled] = useState(false);
     const [selectedRegion, setSelectedRegion] = useState('');
+    const [mapReady, setMapReady] = useState(false);
     const chartRef = useRef(null);
+
+    // ─── Map Loading & Patching Logic ────────────────────────────────────
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadAndPatchMap = async () => {
+            // If the map is already registered globally by ECharts, skip fetching
+            if (echarts.getMap('world')) {
+                if (isMounted) setMapReady(true);
+                return;
+            }
+
+            try {
+                const [worldRes, indiaRes] = await Promise.all([
+                    fetch('https://cdn.jsdelivr.net/npm/echarts@4/map/json/world.json'),
+                    fetch('https://raw.githubusercontent.com/datameet/maps/master/Country/india-composite.geojson')
+                ]);
+
+                const world = await worldRes.json();
+                const india = await indiaRes.json();
+
+                if (india && india.features && india.features.length > 0) {
+                    const idx = world.features.findIndex(f =>
+                        f.properties && (f.properties.name === 'India' || f.properties.iso_a3 === 'IND' || f.properties.ISO_A3 === 'IND')
+                    );
+
+                    if (idx >= 0) {
+                        const allCoords = [];
+                        india.features.forEach(f => {
+                            const g = f.geometry;
+                            if (!g) return;
+                            if (g.type === 'Polygon') allCoords.push(g.coordinates);
+                            else if (g.type === 'MultiPolygon') g.coordinates.forEach(c => allCoords.push(c));
+                        });
+
+                        world.features[idx] = {
+                            type: 'Feature',
+                            properties: world.features[idx].properties,
+                            geometry: { type: 'MultiPolygon', coordinates: allCoords }
+                        };
+                    }
+                }
+
+                echarts.registerMap('world', world);
+                
+                if (isMounted) {
+                    setMapReady(true);
+                }
+            } catch (err) {
+                console.error('Failed to load or patch map data:', err);
+                // Fallback: unblock the UI if fetch fails
+                if (isMounted) setMapReady(true); 
+            }
+        };
+
+        loadAndPatchMap();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     console.log('[GeoMap] props received:', {
         publicLocations: publicLocations?.length,
@@ -263,8 +323,8 @@ export default function GeoLocationMapWrapper({
 
     // ── Three-state data classification ──────────────────────────────────────
     //
-    //   A. hasPublicGeoPoints   → render world map with threat-intel markers
-    //   B1 hasPrivateGeoPoints  → render world map with gray internal markers
+    //   A. hasPublicGeoPoints  → render world map with threat-intel markers
+    //   B1 hasPrivateGeoPoints → render world map with gray internal markers
     //   B2 isPrivateOnlyNoCoords→ render internal-network banner (no coords)
     //   C. !hasAnyGeolocationData → show noDataComponent (true empty)
 
@@ -277,9 +337,9 @@ export default function GeoLocationMapWrapper({
     /**
      * B-wide — any private data exists regardless of whether coords are known.
      * Resolution order (most reliable first):
-     *   1. summary.privateIpCount from the new backend
-     *   2. privateLocations[] from the new backend
-     *   3. Legacy: scan locations[] and logEntries[] for _isPrivate flag
+     * 1. summary.privateIpCount from the new backend
+     * 2. privateLocations[] from the new backend
+     * 3. Legacy: scan locations[] and logEntries[] for _isPrivate flag
      */
     const hasAnyPrivateData = useMemo(() => {
         if (typeof summary.privateIpCount === 'number') return summary.privateIpCount > 0;
@@ -631,7 +691,7 @@ export default function GeoLocationMapWrapper({
     }), [zoomEnabled, flowVisuals, points, selectedRegion, sourceNodes, destinationNodes,
         accent, flowColor, flowHighlight, threatColor, internalArcsData]);
 
-    if (isLoading) {
+    if (isLoading || !mapReady) {
         return loadingComponent;
     }
 
