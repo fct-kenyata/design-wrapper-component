@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { sidebarColors as _sidebarColors, getLiveSidebarColors } from "@design-pattern/colors.js";
-    // import { applyTheme } from "@/lib/colors";
 
 const themes = [
   { name: 'Horizon',   bg: 'linear-gradient(135deg, #050d1a 0%, #0ea5e9 100%)',                 key: 'ocean'    },

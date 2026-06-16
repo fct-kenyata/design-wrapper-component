@@ -1,25 +1,13 @@
 // Import all themes statically (no await needed)
 import * as ocean from "./theam/ocean.jsx";
-import * as eagleye from "./theam/eagleye.jsx";
 import * as sentinel from "./theam/sentinel.jsx";
-import * as aurora from "./theam/aurora.jsx";
-import * as neon from "./theam/neon.jsx";
 import * as emerald from "./theam/emerald.jsx";
-import * as nebula from "./theam/nebula.jsx";
-import * as linen from "./theam/linen.jsx";
-
 import * as signal from "./theam/signal.jsx";
 
 const themeMap = {
-    eagleye,
     sentinel,
-    aurora,
-    neon,
     emerald,
-    nebula,
-    linen,
     ocean,
-
     signal,
     // ── Legacy key aliases (preserves existing localStorage values) ──
     theam1: ocean,
