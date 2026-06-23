@@ -1,11 +1,16 @@
 // main-topbar.jsx
 "use client";
 import React from "react";
-import { LiveClock } from "@design-pattern/liveclick";
-import sidebarColors, { getLiveSidebarColors, fontStyles } from "@design-pattern/colors";
+import { LiveClock } from "./liveclick";
 
-// ── Path helpers (pure) — UNCHANGED ──────────────────────────────────────────
+/**
+ * MainTopbar — page header with title, breadcrumbs, optional slots, and a live
+ * clock. Re-skinned onto the shadcn token system (bg-background, text-primary,
+ * border-border) — no more colors.js / inline theme styles. Public API and
+ * breadcrumb logic unchanged.
+ */
 
+// ── Path helpers (pure) ──────────────────────────────────────────────
 const normalizePath = (p) => {
   const trimmed = (p || "/").replace(/\/+$/, "");
   return (trimmed || "/").toLowerCase();
@@ -31,144 +36,101 @@ const getBreadcrumbs = (p, labels) => {
   return ["Home", ...parts.filter((part, i, arr) => part !== arr[i - 1])];
 };
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
-/**
- * MainTopbar
- *
- * @param {{
- *   routeLabels?:  Record<string, string>,
- *   pathname?:     string,
- *   leftContent?:  import("react").ReactNode,
- *   rightContent?: import("react").ReactNode,
- *   slots?:        Array<{
- *     key:          string,
- *     node:         import("react").ReactNode,
- *     placement?:   "left" | "right",
- *   }>,
- *   style?:        import("react").CSSProperties,
- *   className?:    string,
- * }} props
- */
+// ── Component ─────────────────────────────────────────────────────────
 export const MainTopbar = ({
-  routeLabels  = {},
+  routeLabels = {},
   pathname,
   leftContent,
   rightContent,
-  slots        = [],   // ← NEW: generic, optional, default empty
+  slots = [],
   style,
   className,
 }) => {
-  const colors = getLiveSidebarColors();
-
   // Resolve pathname: prop → window (CSR fallback) → '/'
   const resolvedPath =
-    pathname ??
-    (typeof window !== "undefined" ? window.location.pathname : "/");
+    pathname ?? (typeof window !== "undefined" ? window.location.pathname : "/");
 
-  const dashboardName    = getDashboardName(resolvedPath, routeLabels);
+  const dashboardName = getDashboardName(resolvedPath, routeLabels);
   const visibleBreadcrumbs = getBreadcrumbs(resolvedPath, routeLabels).filter(
     (crumb, i, arr) => i === 0 || crumb !== arr[i - 1]
   );
 
-  // ── NEW: split slots by placement (default = "left") ─────────────────────
-  const leftSlots  = slots.filter((s) => s.placement !== "right");
+  const leftSlots = slots.filter((s) => s.placement !== "right");
   const rightSlots = slots.filter((s) => s.placement === "right");
 
   return (
     <div
-      className={`w-full  border-b px-6 py-4 ${className ?? ""}`}
-      style={{
-        backgroundColor: colors.background,
-        borderColor:     colors.border,
-        ...style,
-      }}
+      className={`w-full border-b border-border bg-background px-6 py-4 ${
+        className ?? ""
+      }`}
+      style={style}
     >
       <div className="flex items-center justify-between gap-4">
-
-        {/* ── LEFT: Title › Breadcrumbs › leftContent › left slots ── */}
-        <div className="flex items-center gap-8 min-w-0">
-
-          {/* Title + Breadcrumbs — UNCHANGED */}
-          <div className="flex flex-col min-w-0">
-            <h1
-              style={{
-                ...fontStyles.heading2,
-                color:  colors.primary,
-                margin: 0,
-              }}
-            >
+        {/* LEFT: Title › Breadcrumbs › leftContent › left slots */}
+        <div className="flex min-w-0 items-center gap-8">
+          <div className="flex min-w-0 flex-col">
+            <h1 className="m-0 text-2xl font-bold tracking-tight text-primary">
               {dashboardName === "Home" ? "Home" : `${dashboardName} `}
             </h1>
 
             <div
-              className="flex items-center gap-2 mt-1 min-h-[18px]"
-              style={{ visibility: visibleBreadcrumbs.length > 1 ? "visible" : "hidden" }}
+              className="mt-1 flex min-h-[18px] items-center gap-2"
+              style={{
+                visibility: visibleBreadcrumbs.length > 1 ? "visible" : "hidden",
+              }}
             >
               {visibleBreadcrumbs.map((crumb, i, arr) => (
                 <div key={i} className="flex items-center gap-2">
                   <span
-                    style={{
-                      ...fontStyles.label,
-                      color:
-                        i === arr.length - 1
-                          ? colors.primaryFrom
-                          : colors.textSecondary,
-                    }}
+                    className={`text-[13px] font-medium tracking-wide ${
+                      i === arr.length - 1
+                        ? "text-primary"
+                        : "text-muted-foreground"
+                    }`}
                   >
                     {crumb}
                   </span>
                   {i < arr.length - 1 && (
-                    <span style={{ color: colors.textSecondary, fontSize: "12px" }}>›</span>
+                    <span className="text-xs text-muted-foreground">›</span>
                   )}
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Slot: leftContent — UNCHANGED */}
           {leftContent && (
-            <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex flex-shrink-0 items-center gap-3">
               {leftContent}
             </div>
           )}
 
-          {/* ── NEW: generic left slots ── */}
           {leftSlots.map((s) => (
-            <div key={s.key} className="flex items-center gap-3 flex-shrink-0">
+            <div key={s.key} className="flex flex-shrink-0 items-center gap-3">
               {s.node}
             </div>
           ))}
         </div>
 
-        {/* ── RIGHT: right slots › rightContent › Pulse + Clock ── */}
-        <div className="flex items-center gap-4 flex-shrink-0">
-
-          {/* ── NEW: generic right slots ── */}
+        {/* RIGHT: right slots › rightContent › Pulse + Clock */}
+        <div className="flex flex-shrink-0 items-center gap-4">
           {rightSlots.map((s) => (
             <div key={s.key} className="flex items-center gap-3">
               {s.node}
             </div>
           ))}
 
-          {/* Slot: rightContent — UNCHANGED */}
           {rightContent && (
-            <div className="flex items-center gap-3">
-              {rightContent}
-            </div>
+            <div className="flex items-center gap-3">{rightContent}</div>
           )}
 
-          {/* Always-present: pulse dot + live clock — UNCHANGED */}
           <div className="flex items-center gap-2">
-            <div
-              className="w-2 h-2 rounded-full animate-pulse"
-              style={{ backgroundColor: colors.primaryFrom }}
-            />
+            <div className="size-2 animate-pulse rounded-full bg-primary" />
             <LiveClock />
           </div>
         </div>
-
       </div>
     </div>
   );
 };
+
+export default MainTopbar;

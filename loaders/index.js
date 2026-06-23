@@ -1,3 +1,4 @@
-import EagleEyeLoader from '../../src/components/utility/EagleEyeLoader';
+import EagleEyeLoader from '../chartsComponents/chartWrappers/EagleEyeLoader.jsx';
 
 export { EagleEyeLoader };
+export default EagleEyeLoader;

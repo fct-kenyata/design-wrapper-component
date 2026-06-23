@@ -127,11 +127,40 @@ export default function GeoLocationMapWrapper({
     const threatHighColor = chartColors.severity.high;
     const infoColor = chartColors.severity.info || chartColors.severity.low;
 
-    const panelBorder = withAlpha(sidebarColors.border, 0.6);
-    const panelBg = withAlpha(sidebarColors.backgroundSoft, 0.82);
-    const panelSoftBg = withAlpha(sidebarColors.surface, 0.7);
+    // Mode-aware surface/text palette so the geo map land + side panels follow
+    // the active light/dark theme (signalled by the `.dark` class on <html>).
+    const _t = sidebarColors;
+    const _isLight = typeof document !== 'undefined'
+        && !document.documentElement.classList.contains('dark');
+    const pal = _isLight
+        ? {
+            surface: '#eef2f7',
+            backgroundSoft: '#f5f8fc',
+            background: '#e6ebf2',
+            backgroundDeep: '#dde4ec',
+            surfaceElevated: '#f8fafc',
+            border: '#cfd8e3',
+            textPrimary: '#0f172a',
+            textSecondary: '#475569',
+            textMuted: '#7b8aa0',
+        }
+        : {
+            surface: _t.surface,
+            backgroundSoft: _t.backgroundSoft,
+            background: _t.background,
+            backgroundDeep: _t.backgroundDeep || _t.background,
+            surfaceElevated: _t.surfaceElevated || _t.surface,
+            border: _t.border,
+            textPrimary: _t.textPrimary,
+            textSecondary: _t.textSecondary,
+            textMuted: _t.textMuted,
+        };
+
+    const panelBorder = withAlpha(pal.border, 0.6);
+    const panelBg = withAlpha(pal.backgroundSoft, 0.82);
+    const panelSoftBg = withAlpha(pal.surface, 0.7);
     const tileBorder = withAlpha(sidebarColors.primary, 0.22);
-    const tileBg = withAlpha(sidebarColors.backgroundSoft, 0.72);
+    const tileBg = withAlpha(pal.backgroundSoft, 0.72);
 
     // ── Public threat-intel points ────────────────────────────────────────
     // Use publicLocations[] when the new backend supplies it (no _isPrivate
@@ -411,7 +440,7 @@ export default function GeoLocationMapWrapper({
             borderColor: chartColors.ui.tooltipBorder,
             borderWidth: 1,
             textStyle: {
-                color: sidebarColors.textPrimary,
+                color: pal.textPrimary,
                 ...fontStyles.bodySmall,
             },
             padding: [10, 14],
@@ -423,14 +452,14 @@ export default function GeoLocationMapWrapper({
                     const data = params.data || {};
                     return `
                         <div style="min-width:200px;">
-                            <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:${sidebarColors.textPrimary};padding-bottom:6px;border-bottom:1px solid ${withAlpha(sidebarColors.borderStrong || sidebarColors.border, 0.45)};">
+                            <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:${pal.textPrimary};padding-bottom:6px;border-bottom:1px solid ${withAlpha(sidebarColors.borderStrong || pal.border, 0.45)};">
                                 ${params.name}&nbsp;<span style="color:#999;font-size:11px;font-weight:400;">(Internal Network)</span>
                             </div>
                             <div style="color:#999;font-size:11px;margin-bottom:6px;">Private IP — coordinates are approximate</div>
                             <div style="display:grid;gap:4px;">
-                                <div style="display:flex;justify-content:space-between;"><span style="color:${sidebarColors.textSecondary};">Total Events</span><strong style="color:#bbb;">${data.value?.[2] || 0}</strong></div>
-                                <div style="display:flex;justify-content:space-between;"><span style="color:${sidebarColors.textSecondary};">As Source</span><strong style="color:#bbb;">${data.sourceCount || 0}</strong></div>
-                                <div style="display:flex;justify-content:space-between;"><span style="color:${sidebarColors.textSecondary};">As Destination</span><strong style="color:#bbb;">${data.destCount || 0}</strong></div>
+                                <div style="display:flex;justify-content:space-between;"><span style="color:${pal.textSecondary};">Total Events</span><strong style="color:#bbb;">${data.value?.[2] || 0}</strong></div>
+                                <div style="display:flex;justify-content:space-between;"><span style="color:${pal.textSecondary};">As Source</span><strong style="color:#bbb;">${data.sourceCount || 0}</strong></div>
+                                <div style="display:flex;justify-content:space-between;"><span style="color:${pal.textSecondary};">As Destination</span><strong style="color:#bbb;">${data.destCount || 0}</strong></div>
                             </div>
                         </div>
                     `;
@@ -439,13 +468,13 @@ export default function GeoLocationMapWrapper({
                     const data = params.data || {};
                     return `
                         <div style="min-width:190px;">
-                            <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:${sidebarColors.textPrimary};padding-bottom:6px;border-bottom:1px solid ${withAlpha(sidebarColors.borderStrong || sidebarColors.border, 0.45)};">
+                            <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:${pal.textPrimary};padding-bottom:6px;border-bottom:1px solid ${withAlpha(sidebarColors.borderStrong || pal.border, 0.45)};">
                                 ${params.name}
                             </div>
                             <div style="display:grid;gap:4px;">
-                                <div style="display:flex;justify-content:space-between;"><span style="color:${sidebarColors.textSecondary};">Total Alerts</span><strong style="color:${chartColors.severity.medium};">${data.value?.[2] || 0}</strong></div>
-                                <div style="display:flex;justify-content:space-between;"><span style="color:${sidebarColors.textSecondary};">As Source</span><strong style="color:${chartColors.severity.high};">${data.sourceCount || 0}</strong></div>
-                                <div style="display:flex;justify-content:space-between;"><span style="color:${sidebarColors.textSecondary};">As Destination</span><strong style="color:${accent};">${data.destCount || 0}</strong></div>
+                                <div style="display:flex;justify-content:space-between;"><span style="color:${pal.textSecondary};">Total Alerts</span><strong style="color:${chartColors.severity.medium};">${data.value?.[2] || 0}</strong></div>
+                                <div style="display:flex;justify-content:space-between;"><span style="color:${pal.textSecondary};">As Source</span><strong style="color:${chartColors.severity.high};">${data.sourceCount || 0}</strong></div>
+                                <div style="display:flex;justify-content:space-between;"><span style="color:${pal.textSecondary};">As Destination</span><strong style="color:${accent};">${data.destCount || 0}</strong></div>
                             </div>
                         </div>
                     `;
@@ -454,10 +483,10 @@ export default function GeoLocationMapWrapper({
                     const data = params.data || {};
                     return `
                         <div style="min-width:190px;">
-                            <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:${sidebarColors.textPrimary};padding-bottom:6px;border-bottom:1px solid ${withAlpha(sidebarColors.borderStrong || sidebarColors.border, 0.45)};">
+                            <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:${pal.textPrimary};padding-bottom:6px;border-bottom:1px solid ${withAlpha(sidebarColors.borderStrong || pal.border, 0.45)};">
                                 ${data.fromName || ''} → ${data.toName || ''}
                             </div>
-                            <div style="display:flex;justify-content:space-between;"><span style="color:${sidebarColors.textSecondary};">Connections</span><strong style="color:${chartColors.severity.medium};">${data.count || 0}</strong></div>
+                            <div style="display:flex;justify-content:space-between;"><span style="color:${pal.textSecondary};">Connections</span><strong style="color:${chartColors.severity.medium};">${data.count || 0}</strong></div>
                         </div>
                     `;
                 }
@@ -471,14 +500,14 @@ export default function GeoLocationMapWrapper({
             center: [8, 21],
             label: { show: false },
             itemStyle: {
-                areaColor: sidebarColors.surface,
-                borderColor: sidebarColors.border,
+                areaColor: pal.surface,
+                borderColor: pal.border,
                 borderWidth: 0.8,
             },
             emphasis: {
                 label: {
                     show: true,
-                    color: sidebarColors.textPrimary,
+                    color: pal.textPrimary,
                     ...fontStyles.bodySmall,
                     fontWeight: 700,
                 },
@@ -505,7 +534,7 @@ export default function GeoLocationMapWrapper({
                         emphasis: {
                             label: {
                                 show: true,
-                                color: sidebarColors.textPrimary,
+                                color: pal.textPrimary,
                                 ...fontStyles.bodySmall,
                                 fontWeight: 700,
                             },
@@ -573,7 +602,7 @@ export default function GeoLocationMapWrapper({
                     trailLength: 0.4,
                     symbol: 'circle',
                     symbolSize: 5,
-                    color: sidebarColors.textPrimary,
+                    color: pal.textPrimary,
                 },
                 lineStyle: {
                     width: 0,
@@ -610,7 +639,7 @@ export default function GeoLocationMapWrapper({
                 zlevel: 4,
                 symbolSize: (val) => Math.max(3, Math.min((val?.[2] || 0) / 22, 6)),
                 itemStyle: {
-                    color: sidebarColors.textPrimary,
+                    color: pal.textPrimary,
                     opacity: 0.95,
                     borderColor: withAlpha(flowColor, 0.55),
                     borderWidth: 1,
@@ -633,7 +662,7 @@ export default function GeoLocationMapWrapper({
                     show: true,
                     formatter: '{b}',
                     position: 'top',
-                    color: sidebarColors.textPrimary,
+                    color: pal.textPrimary,
                     ...fontStyles.bodySmall,
                     fontWeight: 'bold',
                     distance: 5,
@@ -720,8 +749,8 @@ export default function GeoLocationMapWrapper({
                 borderRadius: 18,
                 padding: `${spacing.md} ${spacing.md}`,
                 border: `1px solid ${withAlpha(primary, 0.3)}`,
-                background: `radial-gradient(1300px 520px at 62% 4%, ${withAlpha(sidebarColors.surfaceElevated || sidebarColors.surface, 0.9)} 0%, ${withAlpha(sidebarColors.surface, 0.85)} 35%, ${withAlpha(sidebarColors.backgroundSoft, 0.9)} 64%, ${sidebarColors.background} 100%)`,
-                boxShadow: `inset 0 0 0 1px ${withAlpha(primary, 0.12)}, 0 26px 50px ${withAlpha(sidebarColors.backgroundDeep || sidebarColors.background, 0.42)}`,
+                background: `radial-gradient(1300px 520px at 62% 4%, ${withAlpha(pal.surfaceElevated || pal.surface, 0.9)} 0%, ${withAlpha(pal.surface, 0.85)} 35%, ${withAlpha(pal.backgroundSoft, 0.9)} 64%, ${pal.background} 100%)`,
+                boxShadow: `inset 0 0 0 1px ${withAlpha(primary, 0.12)}, 0 26px 50px ${withAlpha(pal.backgroundDeep || pal.background, 0.42)}`,
             }}
         >
 
@@ -755,9 +784,9 @@ export default function GeoLocationMapWrapper({
                     style={{
                         background: zoomEnabled
                             ? `linear-gradient(135deg, ${withAlpha(primary, 0.36)} 0%, ${withAlpha(primary, 0.3)} 100%)`
-                            : `linear-gradient(135deg, ${withAlpha(sidebarColors.surface, 0.84)} 0%, ${withAlpha(sidebarColors.backgroundSoft, 0.84)} 100%)`,
+                            : `linear-gradient(135deg, ${withAlpha(pal.surface, 0.84)} 0%, ${withAlpha(pal.backgroundSoft, 0.84)} 100%)`,
                         border: `1px solid ${zoomEnabled ? withAlpha(primary, 0.82) : withAlpha(primary, 0.4)}`,
-                        color: zoomEnabled ? sidebarColors.textPrimary : sidebarColors.textSecondary,
+                        color: zoomEnabled ? pal.textPrimary : pal.textSecondary,
                         borderRadius: 999,
                         padding: `${spacing.sm} ${spacing.md}`,
                         cursor: 'pointer',
@@ -791,8 +820,8 @@ export default function GeoLocationMapWrapper({
                             padding: `${spacing.sm} ${spacing.md}`,
                         }}
                     >
-                        <p style={{ margin: 0, color: sidebarColors.textSecondary, ...fontStyles.caption }}>Countries</p>
-                        <p style={{ margin: `${spacing.xs} 0 0`, color: sidebarColors.textPrimary, ...fontStyles.heading6 }}>
+                        <p style={{ margin: 0, color: pal.textSecondary, ...fontStyles.caption }}>Countries</p>
+                        <p style={{ margin: `${spacing.xs} 0 0`, color: pal.textPrimary, ...fontStyles.heading6 }}>
                             {(summary.totalPublicCountries ?? (Array.isArray(publicLocations) ? publicLocations.length : points.length)).toLocaleString()}
                         </p>
                     </div>
@@ -804,7 +833,7 @@ export default function GeoLocationMapWrapper({
                             padding: `${spacing.sm} ${spacing.md}`,
                         }}
                     >
-                        <p style={{ margin: 0, color: sidebarColors.textSecondary, ...fontStyles.caption }}>Alert Logs</p>
+                        <p style={{ margin: 0, color: pal.textSecondary, ...fontStyles.caption }}>Alert Logs</p>
                         <p style={{ margin: `${spacing.xs} 0 0`, color: threatColor, ...fontStyles.heading6 }}>
                             {(summary.totalAlerts || 0).toLocaleString()}
                         </p>
@@ -817,7 +846,7 @@ export default function GeoLocationMapWrapper({
                             padding: `${spacing.sm} ${spacing.md}`,
                         }}
                     >
-                        <p style={{ margin: 0, color: sidebarColors.textSecondary, ...fontStyles.caption }}>Flows</p>
+                        <p style={{ margin: 0, color: pal.textSecondary, ...fontStyles.caption }}>Flows</p>
                         <p style={{ margin: `${spacing.xs} 0 0`, color: flowHighlight, ...fontStyles.heading6 }}>
                             {(summary.totalFlows || flows.length).toLocaleString()}
                         </p>
@@ -831,7 +860,7 @@ export default function GeoLocationMapWrapper({
                                 padding: `${spacing.sm} ${spacing.md}`,
                             }}
                         >
-                            <p style={{ margin: 0, color: sidebarColors.textSecondary, ...fontStyles.caption }}>Private IPs</p>
+                            <p style={{ margin: 0, color: pal.textSecondary, ...fontStyles.caption }}>Private IPs</p>
                             <p style={{ margin: `${spacing.xs} 0 0`, color: infoColor, ...fontStyles.heading6 }}>
                                 {(summary.privateIpCount ?? privateIpList.length).toLocaleString()}
                             </p>
@@ -848,7 +877,7 @@ export default function GeoLocationMapWrapper({
                         position: 'relative',
                         borderRadius: 12,
                         border: `1px dashed ${withAlpha(primary, 0.22)}`,
-                        background: `linear-gradient(180deg, ${withAlpha(sidebarColors.backgroundSoft, 0.35)} 0%, ${withAlpha(sidebarColors.background, 0.55)} 100%)`,
+                        background: `linear-gradient(180deg, ${withAlpha(pal.backgroundSoft, 0.35)} 0%, ${withAlpha(pal.background, 0.55)} 100%)`,
                         padding: `${spacing.lg} ${spacing.md}`,
                         marginBottom: spacing.sm,
                         display: 'flex',
@@ -865,7 +894,7 @@ export default function GeoLocationMapWrapper({
                     </div>
                     <div
                         style={{
-                            color: sidebarColors.textSecondary,
+                            color: pal.textSecondary,
                             ...fontStyles.body,
                             fontWeight: 600,
                             maxWidth: 440,
@@ -877,7 +906,7 @@ export default function GeoLocationMapWrapper({
                     </div>
                     <div
                         style={{
-                            color: sidebarColors.textSecondary,
+                            color: pal.textSecondary,
                             ...fontStyles.bodySmall,
                             maxWidth: 440,
                             lineHeight: 1.6,
@@ -899,7 +928,7 @@ export default function GeoLocationMapWrapper({
                         position: 'relative',
                         borderRadius: 12,
                         border: `1px solid ${withAlpha(primary, 0.28)}`,
-                        background: `linear-gradient(180deg, ${withAlpha(sidebarColors.backgroundSoft, 0.5)} 0%, ${withAlpha(sidebarColors.background, 0.75)} 100%)`,
+                        background: `linear-gradient(180deg, ${withAlpha(pal.backgroundSoft, 0.5)} 0%, ${withAlpha(pal.background, 0.75)} 100%)`,
                         padding: spacing.xs,
                         marginBottom: spacing.sm,
                     }}
@@ -949,9 +978,9 @@ export default function GeoLocationMapWrapper({
                         >
                             <span
                                 style={{
-                                    color: sidebarColors.textSecondary,
+                                    color: pal.textSecondary,
                                     ...fontStyles.body,
-                                    background: withAlpha(sidebarColors.backgroundSoft, 0.88),
+                                    background: withAlpha(pal.backgroundSoft, 0.88),
                                     borderRadius: 8,
                                     padding: `${spacing.sm} ${spacing.md}`,
                                 }}
@@ -968,7 +997,7 @@ export default function GeoLocationMapWrapper({
             {unmapped.length > 0 && (
                 <p
                     style={{
-                        color: sidebarColors.textMuted,
+                        color: pal.textMuted,
                         ...fontStyles.caption,
                         textAlign: 'center',
                         margin: `0 0 ${spacing.sm}`,
@@ -989,14 +1018,14 @@ export default function GeoLocationMapWrapper({
                         marginTop: spacing.md,
                         padding: spacing.md,
                         borderRadius: 12,
-                        border: `1px solid ${withAlpha(sidebarColors.border, 0.5)}`,
-                        backgroundColor: withAlpha(sidebarColors.backgroundSoft, 0.6),
+                        border: `1px solid ${withAlpha(pal.border, 0.5)}`,
+                        backgroundColor: withAlpha(pal.backgroundSoft, 0.6),
                     }}
                 >
-                    <h3 style={{ ...fontStyles.heading6, color: sidebarColors.textSecondary, margin: `0 0 ${spacing.sm}`, display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+                    <h3 style={{ ...fontStyles.heading6, color: pal.textSecondary, margin: `0 0 ${spacing.sm}`, display: 'flex', alignItems: 'center', gap: spacing.xs }}>
                         <span style={{ fontSize: 14, opacity: 0.7 }}>🔒</span>
                         Internal / Private IPs
-                        <span style={{ ...fontStyles.caption, color: sidebarColors.textMuted, fontWeight: 400, marginLeft: spacing.xs }}>
+                        <span style={{ ...fontStyles.caption, color: pal.textMuted, fontWeight: 400, marginLeft: spacing.xs }}>
                             ({privateIpList.length} unique)
                         </span>
                     </h3>
@@ -1006,9 +1035,9 @@ export default function GeoLocationMapWrapper({
                                 key={entry.ip}
                                 style={{
                                     borderRadius: 8,
-                                    border: `1px solid ${withAlpha(sidebarColors.border, 0.35)}`,
+                                    border: `1px solid ${withAlpha(pal.border, 0.35)}`,
                                     padding: `${spacing.sm} ${spacing.md}`,
-                                    backgroundColor: withAlpha(sidebarColors.surface, 0.5),
+                                    backgroundColor: withAlpha(pal.surface, 0.5),
                                     display: 'flex',
                                     justifyContent: 'space-between',
                                     alignItems: 'center',
@@ -1016,11 +1045,11 @@ export default function GeoLocationMapWrapper({
                                 }}
                             >
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    <span style={{ color: sidebarColors.textPrimary, fontFamily: 'monospace', fontSize: 12 }}>
+                                    <span style={{ color: pal.textPrimary, fontFamily: 'monospace', fontSize: 12 }}>
                                         {entry.ip}
                                     </span>
                                     {entry.topConnectedPublicIp && (
-                                        <span style={{ color: sidebarColors.textMuted, fontSize: 11 }}>
+                                        <span style={{ color: pal.textMuted, fontSize: 11 }}>
                                             → {entry.topConnectedPublicIp}
                                         </span>
                                     )}
@@ -1030,8 +1059,8 @@ export default function GeoLocationMapWrapper({
                                         style={{
                                             borderRadius: 4,
                                             padding: '1px 6px',
-                                            backgroundColor: withAlpha(sidebarColors.border, 0.35),
-                                            color: sidebarColors.textSecondary,
+                                            backgroundColor: withAlpha(pal.border, 0.35),
+                                            color: pal.textSecondary,
                                             fontSize: 10,
                                             fontWeight: 700,
                                             textTransform: 'uppercase',
@@ -1039,13 +1068,13 @@ export default function GeoLocationMapWrapper({
                                     >
                                         {entry.role}
                                     </span>
-                                    <span style={{ color: sidebarColors.textMuted, fontSize: 11 }}>{entry.count} events</span>
+                                    <span style={{ color: pal.textMuted, fontSize: 11 }}>{entry.count} events</span>
                                 </div>
                             </div>
                         ))}
                     </div>
                     {privateIpList.length > 12 && (
-                        <p style={{ ...fontStyles.caption, color: sidebarColors.textMuted, margin: `${spacing.sm} 0 0`, textAlign: 'center' }}>
+                        <p style={{ ...fontStyles.caption, color: pal.textMuted, margin: `${spacing.sm} 0 0`, textAlign: 'center' }}>
                             … and {privateIpList.length - 12} more internal IPs
                         </p>
                     )}
@@ -1063,7 +1092,7 @@ export default function GeoLocationMapWrapper({
                         backgroundColor: panelSoftBg,
                     }}
                 >
-                    <h3 style={{ ...fontStyles.heading6, color: sidebarColors.textPrimary, margin: `0 0 ${spacing.sm}` }}>
+                    <h3 style={{ ...fontStyles.heading6, color: pal.textPrimary, margin: `0 0 ${spacing.sm}` }}>
                         Top Connection Flows
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: spacing.sm }}>
@@ -1082,10 +1111,10 @@ export default function GeoLocationMapWrapper({
                                 }}
                             >
                                 <span style={{ color: chartColors.edges.critical }}>→</span>
-                                <span style={{ color: sidebarColors.textPrimary, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <span style={{ color: pal.textPrimary, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {flow.source} → {flow.destination}
                                 </span>
-                                <span style={{ color: sidebarColors.textSecondary, fontWeight: 600 }}>{flow.count}</span>
+                                <span style={{ color: pal.textSecondary, fontWeight: 600 }}>{flow.count}</span>
                             </div>
                         ))}
                     </div>
@@ -1103,7 +1132,7 @@ export default function GeoLocationMapWrapper({
                         backgroundColor: panelSoftBg,
                     }}
                 >
-                    <h3 style={{ ...fontStyles.heading6, color: sidebarColors.textPrimary, margin: `0 0 ${spacing.sm}` }}>
+                    <h3 style={{ ...fontStyles.heading6, color: pal.textPrimary, margin: `0 0 ${spacing.sm}` }}>
                         Recent High/Critical Connections
                     </h3>
                     <div style={{ display: 'grid', gap: spacing.sm, maxHeight: 220, overflowY: 'auto' }}>
@@ -1141,8 +1170,8 @@ export default function GeoLocationMapWrapper({
                                             style={{
                                                 borderRadius: 999,
                                                 padding: `${spacing.xs} ${spacing.sm}`,
-                                                backgroundColor: withAlpha(sidebarColors.border, 0.4),
-                                                color: sidebarColors.textSecondary,
+                                                backgroundColor: withAlpha(pal.border, 0.4),
+                                                color: pal.textSecondary,
                                                 ...fontStyles.caption,
                                                 fontWeight: 700,
                                                 letterSpacing: '0.04em',
@@ -1151,14 +1180,14 @@ export default function GeoLocationMapWrapper({
                                             [INTERNAL]
                                         </span>
                                     )}
-                                    <span style={{ color: sidebarColors.textMuted, ...fontStyles.caption }}>
+                                    <span style={{ color: pal.textMuted, ...fontStyles.caption }}>
                                         {entry.timestamp ? new Date(entry.timestamp).toLocaleString() : ''}
                                     </span>
                                 </div>
-                                <div style={{ color: sidebarColors.textPrimary, ...fontStyles.body, fontWeight: 500 }}>
+                                <div style={{ color: pal.textPrimary, ...fontStyles.body, fontWeight: 500 }}>
                                     {entry.connectionDescription}
                                 </div>
-                                <div style={{ color: sidebarColors.textSecondary, ...fontStyles.caption, marginTop: spacing.xs }}>
+                                <div style={{ color: pal.textSecondary, ...fontStyles.caption, marginTop: spacing.xs }}>
                                     {entry.source?.ip} → {entry.destination?.ip}
                                     {entry.protocol ? ` | ${entry.protocol}` : ''}
                                 </div>

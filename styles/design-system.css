@@ -1,0 +1,192 @@
+/* ============================================================================
+ * design-wrapper-component — Design System stylesheet (shadcn/ui, Tailwind v4)
+ * ----------------------------------------------------------------------------
+ * This file is COMPILED to ./dist/design-system.css (committed to the repo) by
+ * `pnpm build:css`. Consumers import the COMPILED file ONCE:
+ *
+ *     import 'design-wrapper-component/dist/design-system.css';
+ *
+ * After that, every component update is a pure file drop-in — no host Tailwind
+ * config, no CSS variables, nothing to wire up. The host's own Tailwind (any
+ * version, or none) is irrelevant to these components.
+ *
+ * Themes: light = shadcn default · dark = EaglEye bluish (ported from ti-dev).
+ * Toggle dark mode by adding the `dark` class to <html> (e.g. via next-themes
+ * or a manual class toggle).
+ * ========================================================================== */
+
+@import 'tailwindcss';
+@import 'tw-animate-css';
+/* Product typeface — Vercel Geist (self-hosted, variable). Unifies the whole
+   design system on one family. */
+@import '@fontsource-variable/geist/index.css';
+@import '@fontsource-variable/geist-mono/index.css';
+
+/* Only scan THIS library's source for utility classes (paths relative to this
+   file in styles/, so step up to the repo root). */
+@source '../components/**/*.{js,jsx,ts,tsx}';
+@source '../chartsComponents/**/*.{js,jsx,ts,tsx}';
+@source '../*.{js,jsx,ts,tsx}';
+@source '../playground/**/*.{js,jsx,ts,tsx}';
+
+/* Class-based dark mode (toggled via the `.dark` class on an ancestor). */
+@custom-variant dark (&:is(.dark *));
+/* `data-active` is a boolean React stringifies to "false" on inactive items,
+   so match the value explicitly — otherwise every item reads as active. */
+@custom-variant data-active (&[data-active='true'], &[data-state='active']);
+/* shadcn shorthand data-variants → the data-orientation / data-state attrs
+   Radix actually sets (Tabs flex-col, overlay open/close animations, etc.). */
+@custom-variant data-horizontal (&[data-orientation='horizontal']);
+@custom-variant data-vertical (&[data-orientation='vertical']);
+@custom-variant data-open (&[data-state='open']);
+@custom-variant data-closed (&[data-state='closed']);
+
+@theme {
+  --font-sans:
+    'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    sans-serif;
+  --font-orbitron: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    'Geist Mono Variable', ui-monospace, 'SF Mono', Consolas, Monaco, monospace;
+}
+
+@layer base {
+  /* Light theme — shadcn default (neutral base, blue primary). */
+  :root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.546 0.193 262.13);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0.013 262);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.546 0.193 262.13);
+    --chart-1: oklch(0.546 0.193 262.13);
+    --chart-2: oklch(0.6 0.118 184.7);
+    --chart-3: oklch(0.398 0.07 227.4);
+    --chart-4: oklch(0.828 0.189 84.4);
+    --chart-5: oklch(0.769 0.188 70.1);
+    --radius: 0.5rem;
+    /* Unified chrome: sidebar + header are the SAME neutral dark gray in BOTH
+       modes (a persistent brand frame) with light text on the gray. */
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.94 0 0);
+    --sidebar-primary: oklch(0.62 0.19 262);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.255 0 0);
+    --sidebar-accent-foreground: oklch(0.94 0 0);
+    --sidebar-border: oklch(1 0 0 / 12%);
+    --sidebar-ring: oklch(0.8 0 0);
+    /* Severity scale (readable on light surfaces) */
+    --critical: oklch(0.58 0.22 27);
+    --high: oklch(0.66 0.19 47);
+    --medium: oklch(0.72 0.15 75);
+    --low: oklch(0.62 0.16 156);
+  }
+
+  /* Dark theme — EaglEye bluish navy (ported from ti-dev). */
+  .dark {
+    --background: oklch(0.175 0.013 264);
+    --foreground: oklch(0.94 0.005 264);
+    --card: oklch(0.215 0.016 264);
+    --card-foreground: oklch(0.94 0.005 264);
+    --popover: oklch(0.215 0.016 264);
+    --popover-foreground: oklch(0.94 0.005 264);
+    --primary: oklch(0.62 0.19 262);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.27 0.03 264);
+    --secondary-foreground: oklch(0.94 0.005 264);
+    --muted: oklch(0.27 0.03 264);
+    --muted-foreground: oklch(0.72 0.035 264);
+    --accent: oklch(0.3 0.04 264);
+    --accent-foreground: oklch(0.94 0.005 264);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 12%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.62 0.19 262);
+    --chart-1: oklch(0.62 0.19 262);
+    --chart-2: oklch(0.696 0.17 195);
+    --chart-3: oklch(0.769 0.188 70.1);
+    --chart-4: oklch(0.627 0.265 303.9);
+    --chart-5: oklch(0.645 0.246 16.4);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.94 0 0);
+    --sidebar-primary: oklch(0.62 0.19 262);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.255 0 0);
+    --sidebar-accent-foreground: oklch(0.94 0 0);
+    --sidebar-border: oklch(1 0 0 / 12%);
+    --sidebar-ring: oklch(0.8 0 0);
+    --critical: oklch(0.7 0.2 25);
+    --high: oklch(0.76 0.17 55);
+    --medium: oklch(0.82 0.15 82);
+    --low: oklch(0.74 0.16 158);
+  }
+}
+
+/* shadcn/ui token mapping — exposes the CSS variables above as Tailwind v4
+   color/radius utilities (bg-background, text-foreground, bg-sidebar, …). */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--primary-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-critical: var(--critical);
+  --color-high: var(--high);
+  --color-medium: var(--medium);
+  --color-low: var(--low);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+  }
+}

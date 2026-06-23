@@ -91,7 +91,7 @@ export default function AreaChartWrapper({
     });
 
     const option = {
-        backgroundColor: sidebarColors.backgroundSoft,
+        backgroundColor: 'transparent',
 
         tooltip: { trigger: 'axis' },
 

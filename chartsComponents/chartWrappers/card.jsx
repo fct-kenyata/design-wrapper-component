@@ -1,150 +1,71 @@
-import React, { useState } from 'react';
-import sidebarColors, { chartColors, fontStyles } from '../../colors';
-import { borderRadius, componentSpacing, layout, spacing } from '../../spacing';
+import React from 'react';
+import sidebarColors, { chartColors } from '../../colors';
+import { Card } from '../../components/ui/card';
+import { cn } from '../../lib/utils';
 import CardStructureLoader from '../../skeleton/card_structure_loader';
 
+/**
+ * CardWrapper — responsive grid of metric cards with a data-driven accent
+ * underline (severity / variant). Rebuilt on the shadcn Card primitive; the
+ * accent color stays inline because it is data-driven. Public API unchanged:
+ * { cards, children, isLoading, loadingComponent, noDataComponent, onClick }.
+ */
+
+// Theme-aware severity tokens (defined in design-system.css), so the accent
+// follows light/dark instead of a frozen load-time hex.
+const SEVERITY_VARS = {
+    critical: 'var(--critical)',
+    high: 'var(--high)',
+    medium: 'var(--medium)',
+    low: 'var(--low)',
+};
+
+function resolveBottomColor(card) {
+    const key = card?.bottomColor || card?.variant;
+    if (key && SEVERITY_VARS[key]) return SEVERITY_VARS[key];
+    return (
+        chartColors?.severity?.[key]
+        || sidebarColors?.[key]
+        || sidebarColors.primary
+    );
+}
 
 export default function CardWrapper({
     cards = [],
     children = null,
     isLoading = false,
-    loadingComponent = <CardStructureLoader/>,
+    loadingComponent = <CardStructureLoader />,
     noDataComponent = 'No data available',
     onClick,
 }) {
-    const [hoveredCardId, setHoveredCardId] = useState(null);
     const hasDynamicCards = Array.isArray(cards) && cards.length > 0;
-    const structureCount = hasDynamicCards ? cards.length : 0;
-    const minCardWidth = layout.width.md;
-    const bottomBorderWidth = spacing.xs;
 
-    const toRgba = (color, alpha = 1) => {
-        if (!color || typeof color !== 'string') {
-            return `rgba(0, 0, 0, ${alpha})`;
-        }
-
-        if (color.startsWith('#')) {
-            const hex = color.slice(1);
-            const normalized = hex.length === 3
-                ? hex.split('').map((char) => char + char).join('')
-                : hex;
-
-            if (normalized.length === 6) {
-                const intValue = Number.parseInt(normalized, 16);
-                const r = (intValue >> 16) & 255;
-                const g = (intValue >> 8) & 255;
-                const b = intValue & 255;
-                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-            }
-        }
-
-        if (color.startsWith('rgb')) {
-            return color.replace(/rgba?\(([^)]+)\)/, (_, values) => {
-                const [r, g, b] = values.split(',').map((value) => value.trim());
-                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-            });
-        }
-
-        return color;
-    };
-
-    const resolveBottomColor = (card) => {
-        if (card?.bottomColor) {
-            return (
-                chartColors?.severity?.[card.bottomColor]
-                || sidebarColors?.[card.bottomColor]
-                || card.bottomColor
-            );
-        }
-
-        if (card?.variant) {
-            return (
-                chartColors?.severity?.[card.variant]
-                || sidebarColors?.[card.variant]
-                || sidebarColors.primary
-            );
-        }
-
-        return sidebarColors.primary;
-    };
+    if (isLoading) {
+        return <CardStructureLoader count={hasDynamicCards ? cards.length : 0} minCardWidth="180px" />;
+    }
 
     return (
         <div
-            style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(auto-fit, minmax(${minCardWidth}, 1fr))`,
-                gap: componentSpacing.gap.lg,
-            }}
+            className="grid gap-4"
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}
         >
-            {isLoading ? (
-                <CardStructureLoader count={structureCount} minCardWidth={minCardWidth} />
-            ) : hasDynamicCards ? (
-                cards.map((card) => {
-                    const bottomColor = resolveBottomColor(card);
-                    const isHovered = hoveredCardId === card.id;
-
-                    return (
-                        <div
-                            key={card.id}
-                            onMouseEnter={() => setHoveredCardId(card.id)}
-                            onMouseLeave={() => setHoveredCardId(null)}
-                            onClick={onClick ? () => onClick(card) : undefined}
-                            style={{
-                                padding: componentSpacing.card.default,
-                                backgroundColor: sidebarColors.backgroundSoft,
-                                border: `1px solid ${sidebarColors.border}`,
-                                borderBottom: `${bottomBorderWidth} solid ${bottomColor}`,
-                                borderRadius: borderRadius.lg,
-                                textAlign: 'center',
-                                position: 'relative',
-                                overflow: 'visible',
-                                transform: isHovered ? 'translateY(-3px)' : 'translateY(0)',
-                                transition: 'transform 180ms ease, border-color 180ms ease',
-                                boxShadow: 'none',
-                                cursor: onClick ? 'pointer' : 'default',
-                            }}
-                        >
-                            {isHovered && (
-                                <div
-                                    style={{
-                                        position: 'absolute',
-                                        left: '10%',
-                                        right: '10%',
-                                        bottom: -7,
-                                        height: 10,
-                                        pointerEvents: 'none',
-                                        borderRadius: '999px',
-                                        background: `radial-gradient(ellipse at center, ${toRgba(bottomColor, 0.55)} 0%, ${toRgba(bottomColor, 0.2)} 58%, transparent 82%)`,
-                                        filter: 'blur(6px)',
-                                    }}
-                                />
-                            )}
-                            <div
-                                style={{
-                                    ...fontStyles.bodySmall,
-                                    color: sidebarColors.textSecondary,
-                                    marginBottom: spacing.sm,
-                                }}
-                            >
-                                {card.title}
-                            </div>
-                            <div style={{ ...fontStyles.heading2, color: sidebarColors.textPrimary }}>
-                                {card.value}
-                            </div>
-                        </div>
-                    );
-                })
-            ) : (
-                children || (
-                    <div
-                        style={{
-                            color: sidebarColors.textSecondary,
-                            ...fontStyles.body,
-                        }}
+            {hasDynamicCards ? (
+                cards.map((card) => (
+                    <Card
+                        key={card.id}
+                        onClick={onClick ? () => onClick(card) : undefined}
+                        style={{ borderBottom: `4px solid ${resolveBottomColor(card)}` }}
+                        className={cn(
+                            'ring-0 items-center gap-2 border border-border px-4 py-5 text-center transition-transform duration-200',
+                            onClick && 'cursor-pointer hover:-translate-y-0.5'
+                        )}
                     >
-                        {noDataComponent}
-                    </div>
-                )
+                        <div className="text-sm text-muted-foreground">{card.title}</div>
+                        <div className="text-2xl font-bold text-foreground">{card.value}</div>
+                    </Card>
+                ))
+            ) : (
+                children || <div className="text-sm text-muted-foreground">{noDataComponent}</div>
             )}
         </div>
     );

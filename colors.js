@@ -1,16 +1,10 @@
-// Import all themes statically (no await needed)
+// Single blue brand theme (ocean). The earlier multi-theme set
+// (sentinel/emerald/signal) was dropped for one WCAG-AA blue brand; any legacy
+// localStorage theme value falls back to ocean via the lookups below.
 import * as ocean from "./theam/ocean.jsx";
-import * as sentinel from "./theam/sentinel.jsx";
-import * as emerald from "./theam/emerald.jsx";
-import * as signal from "./theam/signal.jsx";
 
 const themeMap = {
-    sentinel,
-    emerald,
     ocean,
-    signal,
-    // ── Legacy key aliases (preserves existing localStorage values) ──
-    theam1: ocean,
 };
 
 // Safe localStorage read — returns default during SSR where window is undefined

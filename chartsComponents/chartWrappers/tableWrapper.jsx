@@ -1,6 +1,13 @@
 import React, { useMemo } from 'react';
-import sidebarColors, { fontStyles } from '../../colors';
-import { borderRadius, spacing } from '../../spacing';
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '../../components/ui/table';
+import { cn } from '../../lib/utils';
+
+/**
+ * TableWrapper — auto-columned data table. Rebuilt on the shadcn Table
+ * primitives + tokens. Public API unchanged: { data, columns, rowNameField,
+ * rowNameLabel, rowKeyField, height, isLoading, noDataComponent, stickyHeader,
+ * valueFormatter, onRowClick }. Custom column.render is still honored.
+ */
 
 const toLabel = (value) => String(value || '')
 	.replace(/([a-z])([A-Z])/g, '$1 $2')
@@ -52,38 +59,10 @@ export default function TableWrapper({
 	}, [columns, rows, rowNameField, rowNameLabel]);
 
 	const resolvedHeight = typeof height === 'number' ? `${height}px` : (height || '400px');
-	const thStyle = {
-		padding: `${spacing.md} ${spacing.md}`,
-		textAlign: 'left',
-		fontSize: fontStyles.bodySmall?.fontSize,
-		fontWeight: 700,
-		letterSpacing: '0.06em',
-		textTransform: 'uppercase',
-		color: sidebarColors.textSecondary,
-		whiteSpace: 'nowrap',
-		borderBottom: `1px solid ${sidebarColors.border}`,
-		backgroundColor: `${sidebarColors.textPrimary}0A`,
-	};
-	const stickyHeaderCellStyle = {
-		position: stickyHeader ? 'sticky' : 'static',
-		top: 0,
-		zIndex: 2,
-		backgroundColor: `${sidebarColors.background}F2`,
-		boxShadow: `inset 0 -1px 0 ${sidebarColors.border}`,
-	};
 
 	if (isLoading) {
 		return (
-			<div
-				style={{
-					minHeight: resolvedHeight,
-					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'center',
-					color: sidebarColors.textSecondary,
-					...fontStyles.body,
-				}}
-			>
+			<div className="flex items-center justify-center text-sm text-muted-foreground" style={{ minHeight: resolvedHeight }}>
 				Loading...
 			</div>
 		);
@@ -91,91 +70,42 @@ export default function TableWrapper({
 
 	if (!rows.length) {
 		return (
-			<div
-				style={{
-					minHeight: resolvedHeight,
-					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'center',
-					color: sidebarColors.textSecondary,
-					...fontStyles.body,
-				}}
-			>
+			<div className="flex items-center justify-center text-sm text-muted-foreground" style={{ minHeight: resolvedHeight }}>
 				{noDataComponent}
 			</div>
 		);
 	}
 
+	const clickable = typeof onRowClick === 'function';
+
 	return (
-		<div
-			style={{
-				width: '100%',
-				height: resolvedHeight,
-				overflow: 'auto',
-				border: `1px solid ${sidebarColors.border}`,
-				borderRadius: borderRadius.lg,
-				backgroundColor: sidebarColors.backgroundSoft,
-				boxShadow: `0 4px 24px ${sidebarColors.background}66`,
-			}}
-		>
-			<table
-				style={{
-					width: '100%',
-					borderCollapse: 'collapse',
-					tableLayout: 'auto',
-					borderSpacing: 0,
-				}}
-			>
-				<thead>
-					<tr>
-						{resolvedColumns.map((column, colIndex) => (
-							<th
+		<div className="w-full overflow-auto rounded-lg border border-border bg-card" style={{ height: resolvedHeight }}>
+			<Table>
+				<TableHeader className={cn(stickyHeader && 'sticky top-0 z-[2] bg-card')}>
+					<TableRow>
+						{resolvedColumns.map((column) => (
+							<TableHead
 								key={`header-${column.key}`}
-								style={{
-									...thStyle,
-									...stickyHeaderCellStyle,
-									textAlign: column.align || 'left',
-									borderRight: colIndex < resolvedColumns.length - 1
-										? `1px solid ${sidebarColors.border}`
-										: 'none',
-								}}
+								style={{ textAlign: column.align || 'left' }}
+								className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
 							>
-								<span style={{ display: 'inline-block' }}>
-									{column.label || toLabel(column.key)}
-								</span>
-							</th>
+								{column.label || toLabel(column.key)}
+							</TableHead>
 						))}
-					</tr>
-				</thead>
-				<tbody>
+					</TableRow>
+				</TableHeader>
+				<TableBody>
 					{rows.map((row, rowIndex) => {
 						const baseRowKey = rowKeyField
 							? row?.[rowKeyField]
 							: (row?.id ?? row?.ticketNumber ?? row?.ruleId ?? row?.[rowNameField] ?? 'row');
 						const resolvedRowKey = `${String(baseRowKey)}-${rowIndex}`;
-						const clickable = typeof onRowClick === 'function';
 
 						return (
-							<tr
+							<TableRow
 								key={resolvedRowKey}
 								onClick={clickable ? () => onRowClick(row, rowIndex) : undefined}
-								onMouseEnter={(event) => {
-									if (clickable) {
-										event.currentTarget.style.backgroundColor = `${sidebarColors.textPrimary}09`;
-									}
-								}}
-								onMouseLeave={(event) => {
-									event.currentTarget.style.backgroundColor = rowIndex % 2 === 0
-										? sidebarColors.backgroundSoft
-										: sidebarColors.background;
-								}}
-								style={{
-									cursor: clickable ? 'pointer' : 'default',
-									backgroundColor: rowIndex % 2 === 0
-										? sidebarColors.backgroundSoft
-										: sidebarColors.background,
-									transition: 'background-color 180ms ease',
-								}}
+								className={cn(clickable && 'cursor-pointer')}
 							>
 								{resolvedColumns.map((column) => {
 									const rawValue = row?.[column.key];
@@ -184,29 +114,20 @@ export default function TableWrapper({
 										: valueFormatter(rawValue, column.key, row, rowIndex);
 
 									return (
-										<td
+										<TableCell
 											key={`cell-${resolvedRowKey}-${column.key}`}
-											style={{
-												textAlign: column.align || 'left',
-												padding: `14px ${spacing.md}`,
-												borderBottom: `1px solid ${sidebarColors.border}40`,
-												color: column.isRowName
-													? sidebarColors.textPrimary
-													: sidebarColors.textSecondary,
-												verticalAlign: 'middle',
-												...fontStyles.body,
-												fontWeight: column.isRowName ? 600 : 400,
-											}}
+											style={{ textAlign: column.align || 'left' }}
+											className={column.isRowName ? 'font-medium text-foreground' : 'text-muted-foreground'}
 										>
 											{renderedValue}
-										</td>
+										</TableCell>
 									);
 								})}
-							</tr>
+							</TableRow>
 						);
 					})}
-				</tbody>
-			</table>
+				</TableBody>
+			</Table>
 		</div>
 	);
 }

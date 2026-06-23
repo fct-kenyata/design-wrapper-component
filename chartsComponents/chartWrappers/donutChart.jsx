@@ -120,7 +120,7 @@ export default function DonutChartWrapper({
     });
 
     const option = {
-        backgroundColor: sidebarColors.backgroundSoft,
+        backgroundColor: 'transparent',
         animationDuration: 650,
         animationEasing: 'cubicOut',
         animationDurationUpdate: 420,
@@ -131,7 +131,7 @@ export default function DonutChartWrapper({
             borderColor: chartColors.ui.tooltipBorder,
             borderWidth: 1,
             extraCssText: `border-radius:8px;box-shadow:0 10px 26px ${withAlpha(sidebarColors.background, 0.55)};white-space:nowrap;`,
-            textStyle: { color: sidebarColors.textPrimary, ...fontStyles.bodySmall },
+            textStyle: { color: chartColors.ui.text, ...fontStyles.bodySmall },
             formatter: (param) => {
                 const name = String(param?.name ?? 'Unknown');
                 const value = Number.isFinite(param?.value) ? Number(param.value).toLocaleString() : '0';
@@ -142,7 +142,7 @@ export default function DonutChartWrapper({
                         : `${percentValue.toFixed(2).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1')}%`)
                     : '-';
 
-                return `<div style="padding:${tokens.tooltipPadY + 2}px ${tokens.tooltipPadX + 4}px;font-weight:${fontStyles.heading6?.fontWeight || 700};line-height:1.2;color:${sidebarColors.textPrimary};">
+                return `<div style="padding:${tokens.tooltipPadY + 2}px ${tokens.tooltipPadX + 4}px;font-weight:${fontStyles.heading6?.fontWeight || 700};line-height:1.2;color:${chartColors.ui.text};">
                     ${name}: ${value} (${percentage})
                 </div>`;
             },
@@ -155,7 +155,7 @@ export default function DonutChartWrapper({
             orient: 'horizontal',
 
             textStyle: {
-                color: sidebarColors.textPrimary,
+                color: chartColors.ui.text,
                 ...fontStyles.bodySmall,
             },
 
@@ -191,7 +191,7 @@ export default function DonutChartWrapper({
                 },
                 label: {
                     show: true,
-                    color: sidebarColors.textPrimary,
+                    color: chartColors.ui.text,
                     ...fontStyles.bodySmall,
                     formatter: '{b}',
                 },

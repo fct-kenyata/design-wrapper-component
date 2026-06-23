@@ -68,7 +68,7 @@ const getResponsiveLabelStyle = () => {
 
 const baseAxisStyle = (labelStyle, isYAxis = false) => ({
     axisLabel: {
-        color: withAlpha(sidebarColors.textPrimary, 0.9),
+        color: chartColors.ui.text,
         ...labelStyle,
         margin: isYAxis ? chartTokens.labelMarginY : chartTokens.labelMarginX,
     },
@@ -324,7 +324,7 @@ export default function VerticalBarChartWrapper({
     const displaySeries = series;
 
     const option = {
-        backgroundColor: sidebarColors.backgroundSoft,
+        backgroundColor: 'transparent',
         animationDuration: 850,
         animationEasing: 'cubicOut',
         animationDurationUpdate: 500,
@@ -341,10 +341,10 @@ export default function VerticalBarChartWrapper({
             borderColor: chartColors.ui.tooltipBorder,
             borderWidth: 1,
             extraCssText: `border-radius:8px;box-shadow:0 8px 24px ${withAlpha(sidebarColors.background, 0.55)};`,
-            textStyle: { color: sidebarColors.textPrimary, ...fontStyles.bodySmall },
+            textStyle: { color: chartColors.ui.text, ...fontStyles.bodySmall },
             formatter: (params = []) => {
                 if (!params.length) return '';
-                let result = `<div style="padding:${chartTokens.tooltipHeaderPadY + 2}px ${chartTokens.tooltipHeaderPadX + 2}px ${chartTokens.tooltipHeaderPadY + 4}px ${chartTokens.tooltipHeaderPadX + 2}px;font-weight:${fontStyles.heading6?.fontWeight || 700};font-size:${fontStyles.body?.fontSize || '14px'};color:${sidebarColors.textPrimary};border-bottom:1px solid ${withAlpha(sidebarColors.border, 0.8)};margin-bottom:2px;">${params[0].axisValue}</div>`;
+                let result = `<div style="padding:${chartTokens.tooltipHeaderPadY + 2}px ${chartTokens.tooltipHeaderPadX + 2}px ${chartTokens.tooltipHeaderPadY + 4}px ${chartTokens.tooltipHeaderPadX + 2}px;font-weight:${fontStyles.heading6?.fontWeight || 700};font-size:${fontStyles.body?.fontSize || '14px'};color:${chartColors.ui.text};border-bottom:1px solid ${withAlpha(sidebarColors.border, 0.8)};margin-bottom:2px;">${params[0].axisValue}</div>`;
                 params.forEach((param) => {
                     const value = typeof param.value === 'number'
                         ? (param.value % 1 !== 0 ? param.value.toFixed(1) : param.value)
@@ -353,7 +353,7 @@ export default function VerticalBarChartWrapper({
                     result += `<div style="padding:${chartTokens.tooltipRowPadY + 4}px ${chartTokens.tooltipRowPadX + 2}px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;column-gap:${chartTokens.tooltipDotGap}px;min-width:220px;line-height:1.35;">
                         <span style="display:inline-block;width:${chartTokens.tooltipDotSize}px;height:${chartTokens.tooltipDotSize}px;border-radius:50%;background:${param.color};"></span>
                         <span style="color:${sidebarColors.textSecondary};text-transform:capitalize;padding-right:${chartTokens.tooltipValueGap}px;">${label}</span>
-                        <strong style="color:${sidebarColors.textPrimary};font-weight:${fontStyles.heading6?.fontWeight || 700};text-align:right;">${value}</strong>
+                        <strong style="color:${chartColors.ui.text};font-weight:${fontStyles.heading6?.fontWeight || 700};text-align:right;">${value}</strong>
                     </div>`;
                 });
                 return result;
@@ -370,7 +370,7 @@ export default function VerticalBarChartWrapper({
             itemGap: chartTokens.legendItemGap,
             icon: 'roundRect',
             padding: [chartTokens.legendPadding, chartTokens.legendPadding, chartTokens.legendPadding, chartTokens.legendPadding],
-            textStyle: { color: withAlpha(sidebarColors.textPrimary, 0.92), ...fontStyles.body },
+            textStyle: { color: chartColors.ui.text, ...fontStyles.body },
         },
         grid: {
             left: chartTokens.gridLeft,
@@ -378,7 +378,7 @@ export default function VerticalBarChartWrapper({
             top: chartTokens.gridTop,
             bottom: chartTokens.gridBottom,
             containLabel: true,
-            backgroundColor: sidebarColors.backgroundSoft,
+            backgroundColor: 'transparent',
         },
         xAxis: {
             type: 'category',

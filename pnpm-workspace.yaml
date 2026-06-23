@@ -1,0 +1,8 @@
+allowBuilds:
+  '@parcel/watcher': true
+  esbuild: true
+onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - esbuild
+# Don't re-run `pnpm install` before every `pnpm run <script>`.
+verifyDepsBeforeRun: false

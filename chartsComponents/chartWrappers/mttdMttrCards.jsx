@@ -1,28 +1,19 @@
 import React from 'react';
-import sidebarColors, { fontStyles } from '../../colors';
-import { borderRadius, componentSpacing, layout, spacing } from '../../spacing';
-// import EagleEyeLoader from '../../../src/components/utility/EagleEyeLoader';
 import { AlarmClock, RefreshCw, ClipboardList, Clock } from 'lucide-react';
+import { Card } from '../../components/ui/card';
+import { cn } from '../../lib/utils';
+
+/**
+ * MttdMttrCardsWrapper — grid of summary metric cards with a left accent rail
+ * + icon/logo. Rebuilt on the shadcn Card primitive; accent color is
+ * data-driven (card.color) so it stays inline. Public API unchanged.
+ */
 
 const ICON_MAP = {
 	'alarm-clock': AlarmClock,
 	refresh: RefreshCw,
 	clipboard: ClipboardList,
 	clock: Clock,
-};
-
-const withAlpha = (hex, alpha) => {
-	if (typeof hex !== 'string') return hex;
-	if (hex.startsWith('rgba') || hex.startsWith('rgb')) return hex;
-	const normalized = hex.replace('#', '');
-	if (![3, 6].includes(normalized.length)) return hex;
-	const full = normalized.length === 3
-		? normalized.split('').map((ch) => `${ch}${ch}`).join('')
-		: normalized;
-	const r = Number.parseInt(full.slice(0, 2), 16);
-	const g = Number.parseInt(full.slice(2, 4), 16);
-	const b = Number.parseInt(full.slice(4, 6), 16);
-	return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
 export default function MttdMttrCardsWrapper({
@@ -42,16 +33,7 @@ export default function MttdMttrCardsWrapper({
 
 	if (!hasCards) {
 		return (
-			<div
-				style={{
-					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'center',
-					minHeight: layout.height['2xl'],
-					color: sidebarColors.textSecondary,
-					...fontStyles.body,
-				}}
-			>
+			<div className="flex min-h-[120px] items-center justify-center text-sm text-muted-foreground">
 				{noDataComponent}
 			</div>
 		);
@@ -65,17 +47,12 @@ export default function MttdMttrCardsWrapper({
 
 	return (
 		<div
-			style={{
-				display: 'grid',
-				gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
-				gap: componentSpacing.gap.md,
-			}}
+			className="grid gap-3"
+			style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
 		>
 			{cards.map((card, index) => {
-				const accentColor = card?.color || sidebarColors.primary;
-				const Icon = typeof card?.icon === 'string'
-					? ICON_MAP[card.icon]
-					: (card?.Icon || card?.icon);
+				const accentColor = card?.color || 'var(--primary)';
+				const Icon = typeof card?.icon === 'string' ? ICON_MAP[card.icon] : (card?.Icon || card?.icon);
 				const logo = card?.logo || card?.logoSrc;
 				const subDataItems = Array.isArray(card?.subData)
 					? card.subData
@@ -87,110 +64,52 @@ export default function MttdMttrCardsWrapper({
 				const clickable = Boolean(card?.clickable || card?.onClick || onCardClick);
 
 				const handleClick = () => {
-					if (typeof card?.onClick === 'function') {
-						card.onClick(card);
-						return;
-					}
-					if (typeof onCardClick === 'function') {
-						onCardClick(card, index);
-					}
+					if (typeof card?.onClick === 'function') return card.onClick(card);
+					if (typeof onCardClick === 'function') onCardClick(card, index);
 				};
 
+				const tint = { backgroundColor: `color-mix(in oklab, ${accentColor} 18%, transparent)` };
+
 				return (
-					<button
+					<Card
 						key={card?.id || card?.label || index}
-						type="button"
-						onClick={handleClick}
-						disabled={!clickable}
-						style={{
-							textAlign: 'left',
-							borderRadius: borderRadius.lg,
-							padding: componentSpacing.card.default,
-							border: `1px solid ${sidebarColors.border}`,
-							borderLeft: `${spacing.xs} solid ${accentColor}`,
-							background: sidebarColors.backgroundSoft,
-							cursor: clickable ? 'pointer' : 'default',
-							display: 'flex',
-							alignItems: 'center',
-							gap: spacing.md,
-						}}
+						onClick={clickable ? handleClick : undefined}
+						style={{ borderLeft: `4px solid ${accentColor}` }}
+						className={cn(
+							'ring-0 flex-row items-center gap-3 border border-border py-4 pl-4 pr-4',
+							clickable && 'cursor-pointer'
+						)}
 					>
 						{logo ? (
-							<div
-								style={{
-									width: layout.height.lg,
-									height: layout.height.lg,
-									borderRadius: borderRadius.md,
-									background: withAlpha(accentColor, 0.18),
-									display: 'flex',
-									alignItems: 'center',
-									justifyContent: 'center',
-									padding: spacing.xs,
-									flexShrink: 0,
-								}}
-							>
-								<img
-									src={logo}
-									alt={card?.label || card?.title || 'card logo'}
-									style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-								/>
+							<div className="flex size-10 shrink-0 items-center justify-center rounded-md p-1" style={tint}>
+								<img src={logo} alt={card?.label || card?.title || 'card logo'} className="size-full object-contain" />
 							</div>
 						) : Icon ? (
-							<div
-								style={{
-									width: layout.height.lg,
-									height: layout.height.lg,
-									borderRadius: borderRadius.md,
-									background: withAlpha(accentColor, 0.18),
-									display: 'flex',
-									alignItems: 'center',
-									justifyContent: 'center',
-									flexShrink: 0,
-								}}
-							>
-								<Icon size={layout.iconSize.sm} color={accentColor} />
+							<div className="flex size-10 shrink-0 items-center justify-center rounded-md" style={tint}>
+								<Icon className="size-5" style={{ color: accentColor }} />
 							</div>
 						) : null}
 
-						<div style={{ minWidth: 0 }}>
-							<div
-								style={{
-									...fontStyles.bodySmall,
-									fontWeight: fontStyles.heading6?.fontWeight || 700,
-									letterSpacing: '0.08em',
-									color: accentColor,
-									marginBottom: spacing.xs,
-									textTransform: 'uppercase',
-								}}
-							>
+						<div className="min-w-0">
+							<div className="mb-1 text-xs font-bold uppercase tracking-wider" style={{ color: accentColor }}>
 								{card?.label || card?.title || '--'}
 							</div>
-
-							<div style={{ ...fontStyles.heading3, color: sidebarColors.textPrimary, lineHeight: 1.2 }}>
+							<div className="text-2xl font-bold leading-tight text-foreground">
 								{card?.display ?? card?.value ?? '--'}
 							</div>
-
-							{subDataItems.length > 0 ? (
-								<div style={{ marginTop: spacing.xs }}>
+							{subDataItems.length > 0 && (
+								<div className="mt-1 space-y-0.5">
 									{subDataItems.map((item, itemIndex) => (
-										<div
-											key={`${card?.id || card?.label || index}-sub-${itemIndex}`}
-											style={{
-												...fontStyles.bodySmall,
-												color: sidebarColors.textSecondary,
-												lineHeight: 1.45,
-											}}
-										>
+										<div key={`${card?.id || index}-sub-${itemIndex}`} className="text-xs leading-snug text-muted-foreground">
 											{item}
 										</div>
 									))}
 								</div>
-							) : null}
+							)}
 						</div>
-					</button>
+					</Card>
 				);
 			})}
 		</div>
 	);
 }
-
