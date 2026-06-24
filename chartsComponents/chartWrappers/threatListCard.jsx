@@ -1,37 +1,18 @@
 import React from 'react';
-import sidebarColors, { chartColors, fontStyles } from '../../colors';
-import { borderRadius, spacing } from '../../spacing';
+import { Card } from '../../components/ui/card';
+import { cn } from '../../lib/utils';
 import EagleEyeLoader from './EagleEyeLoader';
 
-const withAlpha = (hex, alpha) => {
-    if (typeof hex !== 'string') return hex;
-    if (hex.startsWith('rgba') || hex.startsWith('rgb')) return hex;
-
-    const normalized = hex.replace('#', '');
-    if (![3, 6].includes(normalized.length)) return hex;
-
-    const full = normalized.length === 3
-        ? normalized.split('').map((ch) => `${ch}${ch}`).join('')
-        : normalized;
-
-    const r = Number.parseInt(full.slice(0, 2), 16);
-    const g = Number.parseInt(full.slice(2, 4), 16);
-    const b = Number.parseInt(full.slice(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-};
+/**
+ * ThreatListCardWrapper — titled card with a ranked list + signal-strength
+ * bars. Rebuilt on the shadcn Card primitive + tokens. Public API unchanged.
+ */
 
 const toRows = (items = []) => (Array.isArray(items)
     ? items.map((item, index) => {
         if (typeof item === 'string') {
-            return {
-                id: `${item}-${index}`,
-                name: item,
-                subtitle: '',
-                rank: index + 1,
-                signal: Math.min(5, Math.max(2, index + 2)),
-            };
+            return { id: `${item}-${index}`, name: item, subtitle: '', rank: index + 1, signal: Math.min(5, Math.max(2, index + 2)) };
         }
-
         return {
             id: item?.id ?? `${item?.name ?? item?.label ?? 'item'}-${index}`,
             name: String(item?.name ?? item?.label ?? 'Unknown'),
@@ -59,128 +40,50 @@ export default function ThreatListCardWrapper({
     }
 
     const rows = toRows(items).slice(0, maxItems);
-    const accent = sidebarColors.primaryFrom || chartColors?.series?.[0] || '#1fbef2';
-    const accentSoft = sidebarColors.primaryTo || chartColors?.series?.[1] || '#4bd5ff';
 
     if (!rows.length) {
         return (
-            <div
-                style={{
-                    padding: spacing['2xl'],
-                    textAlign: 'center',
-                    color: sidebarColors.textSecondary,
-                    ...fontStyles.body,
-                }}
-            >
-                {noDataComponent}
-            </div>
+            <div className="p-8 text-center text-sm text-muted-foreground">{noDataComponent}</div>
         );
     }
 
     return (
-        <div
-            style={{
-                background: `linear-gradient(130deg, ${withAlpha(sidebarColors.backgroundSoft, 0.98)} 0%, ${withAlpha(sidebarColors.background, 0.98)} 100%)`,
-                border: `1px solid ${withAlpha(accent, 0.32)}`,
-                borderRadius: borderRadius.xl,
-                padding: spacing.lg,
-                boxShadow: `inset 0 0 0 1px ${withAlpha(sidebarColors.border, 0.22)}`,
-            }}
-        >
-            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.lg }}>
-                <div
-                    style={{
-                        width: 30,
-                        height: 30,
-                        borderRadius: borderRadius.md,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: `linear-gradient(135deg, ${withAlpha(accent, 0.34)} 0%, ${withAlpha(accentSoft, 0.3)} 100%)`,
-                        border: `1px solid ${withAlpha(accentSoft, 0.4)}`,
-                    }}
-                >
-                    <span style={{ fontSize: 14, lineHeight: 1 }}>{icon}</span>
-                </div>
-                <div style={{ ...fontStyles.heading5, color: withAlpha(sidebarColors.primaryTo, 0.98) }}>
-                    {title}
-                </div>
+        <Card className="ring-0 gap-4 border border-border p-5">
+            <div className="flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-md bg-primary/15 text-sm leading-none">{icon}</span>
+                <h3 className="text-base font-semibold text-foreground">{title}</h3>
             </div>
 
-            <div style={{ display: 'grid', gap: spacing.md }}>
+            <div className="grid gap-2">
                 {rows.map((row, idx) => {
                     const signalBars = Math.min(5, Math.max(1, Number(row?.signal) || 1));
-
                     return (
                         <div
                             key={row.id}
                             onClick={onItemClick ? () => onItemClick(row.raw || row) : undefined}
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'auto 1fr auto',
-                                alignItems: 'center',
-                                columnGap: spacing.md,
-                                padding: `${spacing.md} ${spacing.md}`,
-                                borderRadius: borderRadius.lg,
-                                background: `linear-gradient(120deg, ${withAlpha(sidebarColors.background, 0.75)} 0%, ${withAlpha(sidebarColors.backgroundSoft, 0.65)} 100%)`,
-                                border: `1px solid ${withAlpha(sidebarColors.border, 0.32)}`,
-                                cursor: onItemClick ? 'pointer' : 'default',
-                            }}
+                            className={cn(
+                                'grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5',
+                                onItemClick && 'cursor-pointer hover:bg-muted/70'
+                            )}
                         >
-                            <div
-                                style={{
-                                    width: 34,
-                                    height: 34,
-                                    borderRadius: borderRadius.full,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: withAlpha(sidebarColors.primaryTo, 0.95),
-                                    ...fontStyles.body,
-                                    fontWeight: 700,
-                                    background: `linear-gradient(135deg, ${withAlpha(accent, 0.25)} 0%, ${withAlpha(accentSoft, 0.2)} 100%)`,
-                                    border: `1px solid ${withAlpha(accentSoft, 0.45)}`,
-                                }}
-                            >
+                            <div className="flex size-8 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
                                 {row.rank || idx + 1}
                             </div>
-
-                            <div>
-                                <div style={{ ...fontStyles.heading5, color: sidebarColors.textPrimary }}>
-                                    {row.name}
-                                </div>
-                                <div style={{ ...fontStyles.bodySmall, color: withAlpha(sidebarColors.textSecondary, 0.9) }}>
-                                    {row.subtitle || subtitleFallback}
-                                </div>
+                            <div className="min-w-0">
+                                <div className="truncate text-sm font-semibold text-foreground">{row.name}</div>
+                                <div className="truncate text-xs text-muted-foreground">{row.subtitle || subtitleFallback}</div>
                             </div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4 }}>
+                            <div className="flex items-center gap-2">
+                                <div className="flex items-end gap-1">
                                     {Array.from({ length: signalBars }).map((_, i) => (
-                                        <span
-                                            key={`sig-${row.id}-${i}`}
-                                            style={{
-                                                width: 6,
-                                                height: 12 + (i % 2) * 4,
-                                                borderRadius: 999,
-                                                backgroundColor: withAlpha(accent, 0.85),
-                                            }}
-                                        />
+                                        <span key={`sig-${row.id}-${i}`} className="w-1.5 rounded-full bg-primary" style={{ height: 12 + (i % 2) * 4 }} />
                                     ))}
                                 </div>
-                                <span
-                                    style={{
-                                        width: 8,
-                                        height: 8,
-                                        borderRadius: borderRadius.full,
-                                        backgroundColor: accentSoft,
-                                    }}
-                                />
                             </div>
                         </div>
                     );
                 })}
             </div>
-        </div>
+        </Card>
     );
 }

@@ -1,356 +1,216 @@
-import React, { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
+import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import sidebarColors from "./colors";
-import "./Sidebar.css";
-import { TOPBAR_HEIGHT , SIDEBAR_COLLAPSED_W,SIDEBAR_EXPANDED_W } from "./lib/layout-constants";
+import { ChevronRight, LogOut } from "lucide-react";
+
+import {
+  Sidebar as SidebarRoot,
+  SidebarHeader,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
+  SidebarRail,
+  useSidebar,
+} from "./components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./components/ui/collapsible";
+
+/**
+ * Sidebar — collapsible navigation rail, now built on the shadcn/ui Sidebar
+ * bedrock (SidebarProvider → Sidebar → SidebarMenu …). Must be rendered inside
+ * a <SidebarProvider> with the page content in a sibling <SidebarInset> (the
+ * standard shadcn layout). Public API preserved:
+ *   { menuItems, bottomMenuItems, logo, onOpenChange, showLogout, onLogout }
+ * Each menu item: { icon, title, path?, children?, onClick?, variant?, active? }.
+ */
 
 const isExternalLink = (path = "") => /^https?:\/\//i.test(path);
 
-// Helper: convert "#rrggbb" → "r, g, b" for use in rgba(var(--x), alpha)
-const hexToRgb = (hex = "") => {
-  const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return r
-    ? `${parseInt(r[1], 16)}, ${parseInt(r[2], 16)}, ${parseInt(r[3], 16)}`
-    : "0, 0, 0";
-};
+// Wrap leaf content in the correct navigation target (Link / <a> / <button>).
+function NavTarget({ item, children, asSub = false }) {
+  const Btn = asSub ? SidebarMenuSubButton : SidebarMenuButton;
+  const isAction = typeof item.onClick === "function" && !item.path;
 
-const logoutIcon = (
-  <svg
-    className="logout-item-icon"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.25"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-    <path d="M16 17l5-5-5-5" />
-    <path d="M21 12H9" />
-  </svg>
-);
+  if (isAction) {
+    return (
+      <Btn
+        onClick={item.onClick}
+        tooltip={asSub ? undefined : item.title}
+        className={item.variant === "danger" ? "text-destructive hover:text-destructive" : undefined}
+      >
+        {children}
+      </Btn>
+    );
+  }
+
+  const path = item.path || "#";
+  const link = isExternalLink(path) ? (
+    <a href={path} target="_blank" rel="noreferrer">{children}</a>
+  ) : (
+    <Link to={path}>{children}</Link>
+  );
+
+  return (
+    <Btn asChild tooltip={asSub ? undefined : item.title} isActive={item.__active}>
+      {link}
+    </Btn>
+  );
+}
+
+function MenuEntry({ item }) {
+  const location = useLocation();
+  const hasChildren = Boolean(item.children?.length);
+  const isAction = typeof item.onClick === "function" && !item.path;
+
+  const childActive = hasChildren && item.children.some((c) => c.path === location.pathname);
+  const active =
+    item.active ??
+    (!isAction && (location.pathname === item.path || childActive));
+
+  if (hasChildren) {
+    return (
+      <Collapsible asChild defaultOpen={childActive} className="group/collapsible">
+        <SidebarMenuItem>
+          <CollapsibleTrigger asChild>
+            <SidebarMenuButton tooltip={item.title} isActive={active}>
+              {item.icon}
+              <span>{item.title}</span>
+              <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+            </SidebarMenuButton>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <SidebarMenuSub>
+              {item.children.map((child, i) => (
+                <SidebarMenuSubItem key={child.path || child.title || i}>
+                  <NavTarget item={{ ...child, __active: location.pathname === child.path }} asSub>
+                    {child.icon && <span className="flex size-4 items-center justify-center">{child.icon}</span>}
+                    <span>{child.title}</span>
+                  </NavTarget>
+                </SidebarMenuSubItem>
+              ))}
+            </SidebarMenuSub>
+          </CollapsibleContent>
+        </SidebarMenuItem>
+      </Collapsible>
+    );
+  }
+
+  return (
+    <SidebarMenuItem>
+      <NavTarget item={{ ...item, __active: active }}>
+        <span className="flex size-4 items-center justify-center">{item.icon || "•"}</span>
+        <span>{item.title}</span>
+      </NavTarget>
+    </SidebarMenuItem>
+  );
+}
 
 const Sidebar = ({
   menuItems = [],
   bottomMenuItems = [],
   logo,
+  title,
+  subtitle,
+  logoHref,
+  onLogoClick,
   onOpenChange,
   showLogout = false,
   onLogout,
 }) => {
-  const [open, setOpen] = useState(false);
+  const { open } = useSidebar();
 
-  const handleToggle = () => {
-    const newOpenState = !open;
-    setOpen(newOpenState);
-    if (onOpenChange) onOpenChange(newOpenState);
-  };
-
-  const cssVariables = {
-    "--sidebar-background": sidebarColors.background,
-    "--sidebar-border": sidebarColors.border,
-    "--sidebar-text-primary": sidebarColors.textPrimary,
-    "--sidebar-text-secondary": sidebarColors.textSecondary,
-    "--sidebar-primary-from": sidebarColors.primaryFrom,
-    "--sidebar-primary-to": sidebarColors.primaryTo,
-    "--sidebar-hover-border": sidebarColors.hoverBorder,
-    "--sidebar-hover-shadow": sidebarColors.hoverShadow,
-    "--sidebar-hover-shadow-spread": sidebarColors.hoverShadowSpread,
-    "--sidebar-active-shadow": sidebarColors.activeShadow,
-    "--sidebar-hover-background": sidebarColors.hoverBackground,
-    "--sidebar-hover-text": sidebarColors.hoverText,
-    "--sidebar-active-background": sidebarColors.activeBackground,
-    "--sidebar-active-text": sidebarColors.activeText,
-    "--sidebar-active-border": sidebarColors.activeBorder,
-    "--sidebar-button-background": sidebarColors.buttonBackground,
-    "--sidebar-button-icon-color": sidebarColors.buttonIconColor,
-
-    // ── Danger tokens ────────────────────────────────────────
-    "--sidebar-danger": sidebarColors.danger,
-    "--sidebar-danger-dark": sidebarColors.dangerDark,
-    "--sidebar-danger-hover": sidebarColors.dangerHover,
-
-    // RGB triples for rgba(var(--x), alpha) usage in CSS
-    "--sidebar-danger-rgb": hexToRgb(sidebarColors.danger),
-    "--sidebar-danger-dark-rgb": hexToRgb(sidebarColors.dangerDark),
-    "--sidebar-primary-rgb": hexToRgb(sidebarColors.primary),
-
-    "--sidebar-expanded-width": SIDEBAR_EXPANDED_W,
-    "--sidebar-collapsed-width": SIDEBAR_COLLAPSED_W,
-     // for use in CSS calc() to fill remaining height
-  };
-
-  const canLogout = showLogout && typeof onLogout === "function";
-
-  const resolvedBottomMenuItems = [
-    ...bottomMenuItems,
-    ...(canLogout
-      ? [{ title: "Logout", icon: logoutIcon, variant: "danger", onClick: onLogout }]
-      : []),
-  ];
-
-  return (
-    <div
-      className={`sidebar-container ${open ? "expanded" : "collapsed"}`}
-      style={cssVariables}
-    >
-      {/* Logo */}
-      <div className={`sidebar-logo ${open ? "expanded" : "collapsed"}`}>
-        {logo && <img src={logo} alt="logo" />}
-      </div>
-
-      {/* Menu */}
-      <div
-        className={`sidebar-menu ${
-          menuItems.length > 5 ? "scrollable sidebar-menu-scroll" : "mt-4"
-        }`}
-      >
-        {menuItems.map((item, i) => (
-          <MenuItem key={i} item={item} open={open} cssVariables={cssVariables} />
-        ))}
-      </div>
-
-      {resolvedBottomMenuItems.length > 0 && (
-        <div className="sidebar-bottom-menu">
-          {resolvedBottomMenuItems.map((item, i) => (
-            <MenuItem
-              key={`bottom-${item.title || i}`}
-              item={item}
-              open={open}
-              cssVariables={cssVariables}
-            />
-          ))}
-        </div>
+  // Header brand block — logo + title + subtitle, sized/styled to match the
+  // ti-dev AppSidebar (orbitron title, logo shrinks in icon mode).
+  const headerContent = (
+    <>
+      {logo && (
+        <img
+          src={logo}
+          alt={title || "logo"}
+          className="size-9 shrink-0 object-contain transition-[width,height] duration-200 group-data-[collapsible=icon]:size-8"
+        />
       )}
-
-      {/* Toggle Button */}
-      <div className="toggle-button-container">
-        <button
-          className={`toggle-button ${open ? "expanded" : "collapsed"}`}
-          onClick={handleToggle}
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
-      </div>
-    </div>
-  );
-};
-
-const MenuItem = ({ item, open, cssVariables }) => {
-  const [subOpen, setSubOpen] = useState(false);
-  const [hoverOpen, setHoverOpen] = useState(false);
-  const [floatingPosition, setFloatingPosition] = useState({ top: 0, left: 0 });
-  const location = useLocation();
-  const wrapperRef = useRef(null);
-  const closeTimerRef = useRef(null);
-  const hasChildren = Boolean(item.children?.length);
-  const isActionItem = typeof item.onClick === "function" && !item.path;
-
-  const isParentActive =
-    hasChildren && item.children.some((child) => location.pathname === child.path);
-  const active = !isActionItem && (location.pathname === item.path || isParentActive);
-
-  // ✅ FIX: was `!showFloatingSubmenu` (inverted) — now correctly derived below
-  const showFloatingSubmenu = !open && hasChildren && hoverOpen;
-
-  useEffect(() => {
-    if (open) {
-      setSubOpen(isParentActive);
-    }
-    setHoverOpen(false);
-  }, [open, isParentActive]);
-
-  useEffect(() => {
-    return () => {
-      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-    };
-  }, []);
-
-  const updateFloatingPosition = () => {
-    if (!wrapperRef.current) return;
-    const rect = wrapperRef.current.getBoundingClientRect();
-    const estimatedHeight = 260;
-    const maxTop = Math.max(12, window.innerHeight - estimatedHeight - 12);
-    setFloatingPosition({
-      top: Math.min(Math.max(12, rect.top), maxTop),
-      left: rect.right + 12,
-    });
-  };
-
-  const openFloatingMenu = () => {
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-    if (!open && hasChildren) {
-      updateFloatingPosition();
-      setHoverOpen(true);
-    }
-  };
-
-  const closeFloatingMenu = () => {
-    if (!open && hasChildren) {
-      closeTimerRef.current = setTimeout(() => setHoverOpen(false), 120);
-    }
-  };
-
-  useEffect(() => {
-    if (!showFloatingSubmenu) return;
-    const handleViewportChange = () => updateFloatingPosition();
-    window.addEventListener("resize", handleViewportChange);
-    window.addEventListener("scroll", handleViewportChange, true);
-    return () => {
-      window.removeEventListener("resize", handleViewportChange);
-      window.removeEventListener("scroll", handleViewportChange, true);
-    };
-  }, [showFloatingSubmenu]);
-
-  const handleItemClick = () => {
-    if (open && hasChildren) setSubOpen(!subOpen);
-  };
-
-  const renderMenuTarget = (menuItem, content, key) => {
-    if (typeof menuItem.onClick === "function" && !menuItem.path) {
-      return (
-        <button
-          key={key}
-          type="button"
-          className="menu-item-trigger"
-          onClick={menuItem.onClick}
-          title={menuItem.title}
-        >
-          {content}
-        </button>
-      );
-    }
-    const menuPath = menuItem.path;
-    if (isExternalLink(menuPath)) {
-      return (
-        <a key={key} href={menuPath} target="_blank" rel="noreferrer">
-          {content}
-        </a>
-      );
-    }
-    return <Link key={key} to={menuPath}>{content}</Link>;
-  };
-
-  const menuContent = (
-    <div
-      onClick={handleItemClick}
-      className={[
-        "menu-item-content",
-        open ? "expanded" : "collapsed",
-        active ? "active" : "",
-        item.variant === "danger" ? "danger" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      <span className="menu-item-icon">
-        <span className={`menu-item-icon-inner ${open ? "expanded" : "collapsed"}`}>
-          {item.icon || "•"}
-        </span>
-      </span>
-
-      {open && (
-        <div className="flex justify-between items-center w-full">
-          <span className="menu-item-text">{item.title}</span>
-          {hasChildren && (
-            <span className={`menu-item-arrow ${subOpen ? "open" : "closed"}`}>
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2.5}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
+      {(title || subtitle) && (
+        <div className="grid min-w-0 flex-1 text-left leading-tight">
+          {title && (
+            <span className="truncate font-orbitron text-sm font-semibold text-sidebar-foreground">
+              {title}
+            </span>
+          )}
+          {subtitle && (
+            <span className="truncate text-xs text-sidebar-foreground/70">
+              {subtitle}
             </span>
           )}
         </div>
       )}
-    </div>
+    </>
   );
 
+  // Preserve the legacy onOpenChange contract (host offsets / reacts to state).
+  React.useEffect(() => {
+    if (typeof onOpenChange === "function") onOpenChange(open);
+  }, [open, onOpenChange]);
+
+  const canLogout = showLogout && typeof onLogout === "function";
+  const resolvedBottom = [
+    ...bottomMenuItems,
+    ...(canLogout
+      ? [{ title: "Logout", icon: <LogOut className="size-4" />, variant: "danger", onClick: onLogout }]
+      : []),
+  ];
+
   return (
-    <div
-      ref={wrapperRef}
-      // ✅ FIX: was `!showFloatingSubmenu` — inverted bug corrected
-      className={`menu-item-wrapper ${showFloatingSubmenu ? "floating-open" : ""}`}
-      onMouseEnter={openFloatingMenu}
-      onMouseLeave={closeFloatingMenu}
-    >
-      {hasChildren && !item.path ? (
-        menuContent
-      ) : (
-        renderMenuTarget(item, menuContent, item.path || item.title || "menu-item")
+    <SidebarRoot collapsible="icon">
+      <SidebarHeader className="group-data-[collapsible=icon]:h-14 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:py-0">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild={Boolean(logoHref)}
+              size="lg"
+              tooltip={title || undefined}
+              onClick={!logoHref && typeof onLogoClick === "function" ? onLogoClick : undefined}
+              className="group-data-[collapsible=icon]:p-0!"
+            >
+              {logoHref ? <Link to={logoHref}>{headerContent}</Link> : headerContent}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {menuItems.map((item, i) => (
+                <MenuEntry key={item.path || item.title || i} item={item} />
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      {resolvedBottom.length > 0 && (
+        <SidebarFooter>
+          <SidebarMenu>
+            {resolvedBottom.map((item, i) => (
+              <MenuEntry key={`bottom-${item.title || i}`} item={item} />
+            ))}
+          </SidebarMenu>
+        </SidebarFooter>
       )}
 
-      {/* Expanded inline submenu */}
-      {hasChildren && subOpen && open && (
-        <div className="submenu-container">
-          {item.children.map((child, i) => {
-            const childActive = child.path ? location.pathname === child.path : false;
-            return renderMenuTarget(
-              child,
-              <div className={`submenu-item ${childActive ? "active" : ""}`}>
-                {child.icon && (
-                  <span className="submenu-item-icon">{child.icon}</span>
-                )}
-                <span>{child.title}</span>
-              </div>,
-              `${item.title}-${child.title}-${i}`
-            );
-          })}
-        </div>
-      )}
-
-      {/* Collapsed floating portal submenu */}
-      {showFloatingSubmenu &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            className="submenu-container floating-submenu floating-submenu-portal"
-            style={{
-              ...cssVariables,
-              top: `${floatingPosition.top}px`,
-              left: `${floatingPosition.left}px`,
-            }}
-            onMouseEnter={openFloatingMenu}
-            onMouseLeave={closeFloatingMenu}
-          >
-            <div className="floating-submenu-title">{item.title}</div>
-            <div className="floating-submenu-items">
-              {item.children.map((child, i) => {
-                const childActive = child.path
-                  ? location.pathname === child.path
-                  : false;
-                return renderMenuTarget(
-                  child,
-                  <div className={`submenu-item ${childActive ? "active" : ""}`}>
-                    {child.icon && (
-                      <span className="submenu-item-icon">{child.icon}</span>
-                    )}
-                    <span>{child.title}</span>
-                  </div>,
-                  `${item.title}-floating-${child.title}-${i}`
-                );
-              })}
-            </div>
-          </div>,
-          document.body
-        )}
-    </div>
+      <SidebarRail />
+    </SidebarRoot>
   );
 };
 

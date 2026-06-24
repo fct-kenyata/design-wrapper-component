@@ -6,7 +6,6 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { getLiveSidebarColors } from "@design-pattern/colors.js";
 import "./RightSidebar.css";
 
 const closeIcon = (
@@ -31,7 +30,6 @@ const RightSidebar = forwardRef(function RightSidebar(
   ref
 ) {
   const [open, setOpen] = useState(false);
-  const colors = getLiveSidebarColors();
 
   const openPanel = useCallback(() => setOpen(true), []);
   const closePanel = useCallback(() => setOpen(false), []);
@@ -60,22 +58,9 @@ const RightSidebar = forwardRef(function RightSidebar(
 
   const panelWidth = typeof width === "number" ? `${width}px` : width;
 
-  const cssVariables = {
-    "--rs-background": colors.background,
-    "--rs-surface": colors.surface || colors.backgroundSoft,
-    "--rs-border": colors.border,
-    "--rs-text-primary": colors.textPrimary,
-    "--rs-text-secondary": colors.textSecondary,
-    "--rs-text-muted": colors.textMuted,
-    "--rs-primary-from": colors.primaryFrom,
-    "--rs-primary-to": colors.primaryTo,
-    "--rs-primary": colors.primary,
-  };
-
   return createPortal(
     <div
       className={`right-sidebar-root ${open ? "open" : "closed"}`}
-      style={cssVariables}
       aria-hidden={!open}
     >
       <div

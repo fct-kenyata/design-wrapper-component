@@ -136,7 +136,7 @@ const sidebarColors = {
 // ===== FONT STYLES ===== (same across all themes)
 const fontSmoothing = {
   fontFamily:
-    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    "'Geist Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
   WebkitFontSmoothing: 'antialiased',
   MozOsxFontSmoothing: 'grayscale',
   textRendering: 'optimizeLegibility',
@@ -285,13 +285,32 @@ export const chartColors = {
     orange: ['#f97316', '#fb923c'],
     pink: ['#ec4899', '#f472b6'],
   },
-  ui: {
+  // `ui` is a mode-aware getter: echarts axis/grid/label/tooltip colors follow
+  // the active light/dark theme (signalled by the `.dark` class on <html>, the
+  // same mechanism design-system.css uses). Wrappers read chartColors.ui.* at
+  // render time, so the getter resolves the right palette on every paint.
+  _uiDark: {
     grid: 'rgba(56, 189, 248, 0.08)',
     axis: 'rgba(226, 244, 255, 0.30)',
     label: 'rgba(226, 244, 255, 0.60)',
+    text: 'rgba(226, 244, 255, 0.92)',
     tooltip: 'rgba(5, 13, 26, 0.97)',
     tooltipBorder: 'rgba(56, 189, 248, 0.50)',
     border: 'rgba(56, 189, 248, 0.15)',
+  },
+  _uiLight: {
+    grid: 'rgba(15, 23, 42, 0.10)',
+    axis: 'rgba(15, 23, 42, 0.35)',
+    label: 'rgba(15, 23, 42, 0.62)',
+    text: 'rgba(15, 23, 42, 0.88)',
+    tooltip: 'rgba(255, 255, 255, 0.98)',
+    tooltipBorder: 'rgba(14, 165, 233, 0.45)',
+    border: 'rgba(15, 23, 42, 0.12)',
+  },
+  get ui() {
+    const isLight = typeof document !== 'undefined'
+      && !document.documentElement.classList.contains('dark');
+    return isLight ? this._uiLight : this._uiDark;
   },
   edges: {
     critical: '#ef4444',

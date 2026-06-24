@@ -1,30 +1,33 @@
 'use client';
 
 import React from 'react';
-import { APP_COLORS } from '@/lib/colors';
-import { TYPOGRAPHY } from '@/lib/typography';
+import { cn } from './lib/utils';
 
+/**
+ * NoGraphData — empty state for charts/graphs, now token-driven (no external
+ * color/typography imports). Public API unchanged: icon, iconColor (CSS color,
+ * defaults to the primary token), title, subtitle, height (Tailwind class).
+ */
 export function NoGraphData({
   icon,
-  iconColor = APP_COLORS.primary,
+  iconColor = 'var(--primary)',
   title = 'No data available',
   subtitle = 'Data will appear once records are processed',
   height = 'h-56',
 }) {
   return (
     <div
-      className={`${height} flex flex-col items-center justify-center rounded-lg `}
-      style={{
-        backgroundColor: APP_COLORS.backgroundSoft,
-        borderColor: APP_COLORS.border,
-      }}
+      className={cn(
+        height,
+        'flex flex-col items-center justify-center rounded-lg border border-border bg-muted/40'
+      )}
     >
       {icon && (
         <div
-          className="w-12 h-12 rounded-xl flex items-center justify-center mb-3 border"
+          className="mb-3 flex size-12 items-center justify-center rounded-xl border"
           style={{
-            backgroundColor: `${iconColor}15`,
-            borderColor: `${iconColor}30`,
+            backgroundColor: `color-mix(in oklab, ${iconColor} 12%, transparent)`,
+            borderColor: `color-mix(in oklab, ${iconColor} 25%, transparent)`,
           }}
         >
           {React.cloneElement(icon, {
@@ -34,19 +37,14 @@ export function NoGraphData({
         </div>
       )}
 
-      <p
-        className={`${TYPOGRAPHY.body.sm} ${TYPOGRAPHY.fontWeight.medium} mb-1 text-center`}
-        style={{ color: APP_COLORS.textSecondary }}
-      >
+      <p className="mb-1 text-center text-sm font-medium text-muted-foreground">
         {title}
       </p>
-
-      <p
-        className={`${TYPOGRAPHY.caption.xs} text-center px-4`}
-        style={{ color: APP_COLORS.textDim }}
-      >
+      <p className="px-4 text-center text-xs text-muted-foreground/70">
         {subtitle}
       </p>
     </div>
   );
 }
+
+export default NoGraphData;

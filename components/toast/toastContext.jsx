@@ -1,37 +1,47 @@
-import React, { createContext, useContext, useCallback, useRef, useState } from "react";
-import {ToastContainer} from "./toast.jsx";
+import React, { createContext, useContext, useCallback } from "react";
+import { toast as sonnerToast } from "sonner";
+import { Toaster } from "../ui/sonner";
 
+/**
+ * Toast — public API preserved (ToastProvider + useToast), now backed by sonner.
+ *
+ *   const toast = useToast();
+ *   toast({ message, title?, type?: "info"|"success"|"warning"|"error", duration? });
+ */
 
 const ToastContext = createContext(null);
 
 export function ToastProvider({ children }) {
-    const [toasts, setToasts] = useState([]);
-    const idRef = useRef(0);
+  const toast = useCallback(
+    ({ message, title, type = "info", duration = 3000 }) => {
+      const fn =
+        type === "success"
+          ? sonnerToast.success
+          : type === "error"
+            ? sonnerToast.error
+            : type === "warning"
+              ? sonnerToast.warning
+              : sonnerToast.info;
+      // With a title, show it as the heading and the message as the description;
+      // otherwise the message is the heading.
+      return fn(title ?? message, {
+        description: title ? message : undefined,
+        duration,
+      });
+    },
+    []
+  );
 
-    const toast = useCallback(({ message, title, type = "info", duration = 3000 }) => {
-        const id = idRef.current++;
-        setToasts((prev) => [...prev, { id, message, title, type, duration }]);
-        setTimeout(() => {
-            setToasts((prev) => prev.filter((t) => t.id !== id));
-        }, duration);
-    }, []);
-
-    const dismiss = useCallback((id) => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, []);
-
-
-    return (
-        <ToastContext.Provider value={{ toast }}>
-
-            {children}
-            <ToastContainer toasts={toasts} onDismiss={dismiss} />
-        </ToastContext.Provider>
-    );
+  return (
+    <ToastContext.Provider value={{ toast }}>
+      {children}
+      <Toaster />
+    </ToastContext.Provider>
+  );
 }
 
 export function useToast() {
-    const ctx = useContext(ToastContext);
-    if (!ctx) throw new Error("useToast must be used inside <ToastProvider>");
-    return ctx.toast;
+  const ctx = useContext(ToastContext);
+  if (!ctx) throw new Error("useToast must be used inside <ToastProvider>");
+  return ctx.toast;
 }

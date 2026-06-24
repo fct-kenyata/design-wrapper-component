@@ -1,0 +1,10 @@
+node_modules/
+*.log
+.DS_Store
+.env
+.env.*
+# NOTE: dist/ is intentionally NOT ignored — the prebuilt design-system.css
+# must travel with the folder so vendored consumers get styles with zero config.
+
+# Vite playground build output (dev-only)
+playground/dist/

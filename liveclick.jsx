@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import sidebarColors, { fontStyles } from '@design-pattern/colors.js';
 
 export const LiveClock = () => {
   const [currentTime, setCurrentTime] = useState(() =>
@@ -14,15 +13,8 @@ export const LiveClock = () => {
   }, []);
 
   return (
-    <span
-      style={{
-        ...fontStyles.body,
-        fontFamily:
-          'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
-        color: sidebarColors.textPrimary,
-      }}
-    >
-      {currentTime}
-    </span>
+    <span className="font-mono text-sm text-foreground">{currentTime}</span>
   );
 };
+
+export default LiveClock;

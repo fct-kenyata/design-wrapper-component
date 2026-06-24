@@ -1,24 +1,14 @@
 import React from 'react';
-import sidebarColors, { chartColors, fontStyles } from '../../colors';
-import { borderRadius, spacing } from '../../spacing';
+import { chartColors } from '../../colors';
+import { Card } from '../../components/ui/card';
+import { cn } from '../../lib/utils';
 import EagleEyeLoader from './EagleEyeLoader';
 
-const withAlpha = (hex, alpha) => {
-    if (typeof hex !== 'string') return hex;
-    if (hex.startsWith('rgba') || hex.startsWith('rgb')) return hex;
-
-    const normalized = hex.replace('#', '');
-    if (![3, 6].includes(normalized.length)) return hex;
-
-    const full = normalized.length === 3
-        ? normalized.split('').map((ch) => `${ch}${ch}`).join('')
-        : normalized;
-
-    const r = Number.parseInt(full.slice(0, 2), 16);
-    const g = Number.parseInt(full.slice(2, 4), 16);
-    const b = Number.parseInt(full.slice(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-};
+/**
+ * ListCardWrapper — ranked list with per-series progress bars. Rebuilt on the
+ * shadcn Card primitive + tokens; the per-series accent is data-driven (chart
+ * palette) so it stays inline. Public API unchanged.
+ */
 
 const toCount = (value) => {
     const numeric = Number(value);
@@ -44,16 +34,7 @@ export default function ListCardWrapper({
     const rows = Array.isArray(data) ? data : [];
     if (!rows.length) {
         return (
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minHeight: 160,
-                    color: sidebarColors.textSecondary,
-                    ...fontStyles.body,
-                }}
-            >
+            <div className="flex min-h-[160px] items-center justify-center text-sm text-muted-foreground">
                 {noDataComponent}
             </div>
         );
@@ -64,7 +45,7 @@ export default function ListCardWrapper({
         : rows.reduce((sum, item) => sum + toCount(item?.[valueField]), 0);
 
     return (
-        <div style={{ display: 'grid', gap: spacing.md }}>
+        <div className="grid gap-3">
             {rows.map((item, idx) => {
                 const label = String(item?.[labelField] || 'Unknown').toUpperCase();
                 const value = toCount(item?.[valueField]);
@@ -72,127 +53,37 @@ export default function ListCardWrapper({
                 const percent = Number.isFinite(explicitPercent)
                     ? Math.max(0, Math.min(100, explicitPercent))
                     : (resolvedTotal > 0 ? Math.round((value / resolvedTotal) * 100) : 0);
-
-                const accent = chartColors?.series?.[idx % chartColors.series.length] || sidebarColors.primaryFrom;
+                const accent = chartColors?.series?.[idx % chartColors.series.length] || 'var(--primary)';
 
                 return (
-                    <div
+                    <Card
                         key={`${label}-${idx}`}
                         onClick={onClick ? () => onClick(item) : undefined}
-                        style={{
-                            border: `1px solid ${withAlpha(sidebarColors.border, 0.45)}`,
-                            borderRadius: borderRadius.lg,
-                            background: `linear-gradient(140deg, ${withAlpha(sidebarColors.backgroundSoft, 0.97)} 0%, ${withAlpha(sidebarColors.background, 0.98)} 100%)`,
-                            boxShadow: `inset 0 0 0 1px ${withAlpha(sidebarColors.primaryFrom, 0.08)}`,
-                            padding: `${spacing.md} ${spacing.lg}`,
-                            cursor: onClick ? 'pointer' : 'default',
-                        }}
+                        className={cn(
+                            'ring-0 gap-0 border border-border px-4 py-3',
+                            onClick && 'cursor-pointer'
+                        )}
                     >
-                        <div
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: '1fr auto auto',
-                                alignItems: 'center',
-                                columnGap: spacing.lg,
-                            }}
-                        >
-                            <div style={{ minWidth: 0 }}>
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: spacing.sm,
-                                        marginBottom: spacing.xs,
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            width: 10,
-                                            height: 10,
-                                            borderRadius: borderRadius.full,
-                                            backgroundColor: accent,
-                                            boxShadow: `0 0 10px ${withAlpha(accent, 0.58)}`,
-                                            flexShrink: 0,
-                                        }}
-                                    />
-                                    <span
-                                        style={{
-                                            color: withAlpha(sidebarColors.primaryTo, 0.95),
-                                            ...fontStyles.body,
-                                            fontWeight: 700,
-                                            letterSpacing: 0.3,
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                        }}
-                                    >
-                                        {label}
-                                    </span>
+                        <div className="grid grid-cols-[1fr_auto] items-center gap-4">
+                            <div className="min-w-0">
+                                <div className="mb-1.5 flex items-center gap-2">
+                                    <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: accent }} />
+                                    <span className="truncate text-sm font-semibold tracking-wide text-foreground">{label}</span>
                                 </div>
 
-                                <div
-                                    style={{
-                                        width: '100%',
-                                        height: 9,
-                                        borderRadius: 999,
-                                        backgroundColor: withAlpha(sidebarColors.primaryFrom, 0.16),
-                                        overflow: 'hidden',
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            width: `${percent}%`,
-                                            height: '100%',
-                                            borderRadius: 999,
-                                            background: `linear-gradient(90deg, ${withAlpha(accent, 0.85)} 0%, ${withAlpha(accent, 1)} 100%)`,
-                                        }}
-                                    />
+                                <div className="h-2 w-full overflow-hidden rounded-full bg-primary/15">
+                                    <div className="h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: accent }} />
                                 </div>
 
-                                <div
-                                    style={{
-                                        marginTop: spacing.xs,
-                                        color: withAlpha(sidebarColors.textSecondary, 0.9),
-                                        ...fontStyles.bodySmall,
-                                    }}
-                                >
-                                    {percent}%
-                                </div>
+                                <div className="mt-1 text-xs text-muted-foreground">{percent}%</div>
                             </div>
 
-                            <div style={{ textAlign: 'right', minWidth: 62 }}>
-                                <div
-                                    style={{
-                                        color: sidebarColors.textPrimary,
-                                        ...fontStyles.heading5,
-                                        fontWeight: 700,
-                                        lineHeight: 1.1,
-                                    }}
-                                >
-                                    {value.toLocaleString()}
-                                </div>
-                                <div
-                                    style={{
-                                        color: withAlpha(sidebarColors.textSecondary, 0.85),
-                                        ...fontStyles.bodySmall,
-                                    }}
-                                >
-                                    {itemSuffix}
-                                </div>
-                            </div>
-
-                            <div
-                                style={{
-                                    color: withAlpha(sidebarColors.textSecondary, 0.72),
-                                    fontSize: 18,
-                                    lineHeight: 1,
-                                    userSelect: 'none',
-                                }}
-                            >
-                                
+                            <div className="min-w-[62px] text-right">
+                                <div className="text-base font-bold leading-tight text-foreground">{value.toLocaleString()}</div>
+                                <div className="text-xs text-muted-foreground">{itemSuffix}</div>
                             </div>
                         </div>
-                    </div>
+                    </Card>
                 );
             })}
         </div>

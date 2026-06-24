@@ -9,6 +9,7 @@
 // Components
 export { default as Button } from './Button';
 export { default as Sidebar } from './Sidebar';
+export { StatChip } from './components/ui/stat-chip';
 export { default as RightSidebar } from './components/RightSidebar.jsx';
 export { default as BaseAccordion } from './components/BaseAccordion.jsx';
 export { default as PageLoader } from './PageLoader';

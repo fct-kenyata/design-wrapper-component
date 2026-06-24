@@ -1,109 +1,39 @@
 /**
- * StatsCard — centralized statistics / metric card component
+ * StatsCard — centralized metric card, now built on the shadcn Card primitive
+ * and design-system tokens (severity scale: critical/high/medium/low). The
+ * accent color is injected as a CSS variable (--sc-accent) so a variant token
+ * OR an explicit `color` prop both work. Public API unchanged.
  *
- * Enforces a single source of truth for all metric displays:
- *   • Alert Statistics Dashboard (Critical / High / Medium / Low / Total)
- *   • Threat Summary Statistics (Advisory / IoC's Swept / Matched / Total Logs)
- *   • Security Summary inline metrics (Risk Score, Vulnerabilities, …)
- *
- * Two render modes
- * ────────────────
- *   layout="card"   (default) — bordered card with optional icon, centered label,
- *                               large white value, colored bottom accent bar.
- *                               Hover lifts + accents the border.
- *   layout="inline" — no card border; just colored value text + gray uppercase label.
- *                     Designed to sit inside a parent card container.
- *   shape="compact" — horizontal single-row: muted label on left, colored value on right.
- *                     No icon, no border, minimal height. Ideal for dense stat rows.
- *
- * Variant → color mapping (all from design tokens — no hardcoded colors)
- * ───────────────────────────────────────────────────────────────────────
- *   critical → chartColors.severity.critical   (#ef4444 red)
- *   high     → chartColors.severity.high       (#f97316 orange)
- *   medium   → chartColors.severity.medium     (#eab308 yellow)
- *   low      → chartColors.severity.low        (#3b82f6 blue)
- *   info     → chartColors.series[4]           (cyan)
- *   primary  → sidebarColors.primaryFrom       (blue-500)
- *   success  → #22c55e (green — only hardcoded value, no semantic token exists)
- *
- * Props
- * ─────
- *   title      – string   label displayed below the value  (required)
- *   value      – number|string  the metric value           (required)
- *   icon       – React component (e.g. AlertTriangle from lucide-react)
- *   variant    – "critical"|"high"|"medium"|"low"|"info"|"primary"|"success"
- *   color      – explicit CSS color string (overrides variant)
- *   layout     – "card" | "inline"   (default: "card")
- *   shape      – "default" | "compact"  controls the layout shape (default: "default")
- *                compact = horizontal [ Title | Value ] row, no icon
- *   accentBar  – boolean  show bottom color bar (card layout, default true)
- *   trend      – { direction: "up"|"down"|"flat", percent: number } (optional)
- *   onClick    – () => void  makes card clickable with hover elevate effect
- *   style      – extra inline style for the root element
- *   size       – "sm" | "md" | "lg"  controls metric font size (default: "md")
- *
- * Usage
- * ─────
- *   // Severity alert card
- *   <StatsCard title="Critical" value={368} icon={AlertOctagon} variant="critical" onClick={...} />
- *
- *   // Threat summary card (no icon)
- *   <StatsCard title="Advisory" value={12} color={chartColors.severity.medium} />
- *
- *   // Inline metric inside a parent card
- *   <StatsCard layout="inline" title="Risk Score" value="56.3" color={chartColors.series[0]} />
+ * Layouts: card (default) | inline · shape: default | compact
+ * Variants: critical | high | medium | low | info | primary | success |
+ *           warning | default   (or pass an explicit `color`)
  */
 
-import { useState } from 'react';
-import sidebarColors, { fontStyles, chartColors } from './colors';
-import { spacing, borderRadius, layout, componentSpacing } from './spacing';
+import React, { useState } from 'react';
+import { Card } from './components/ui/card';
+import { cn } from './lib/utils';
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
-
-/** Convert a hex/rgba color to rgba with a given alpha */
-function withAlpha(color, alpha) {
-  if (!color) return `rgba(59,130,246,${alpha})`;
-  if (color.startsWith('rgba')) {
-    return color.replace(/[\d.]+\)$/, `${alpha})`);
-  }
-  if (color.startsWith('#')) {
-    const hex = color.replace('#', '');
-    const full =
-      hex.length === 3
-        ? hex
-            .split('')
-            .map((c) => c + c)
-            .join('')
-        : hex;
-    const r = parseInt(full.slice(0, 2), 16);
-    const g = parseInt(full.slice(2, 4), 16);
-    const b = parseInt(full.slice(4, 6), 16);
-    return `rgba(${r},${g},${b},${alpha})`;
-  }
-  return color;
-}
-
-// ─── variant → design-token color mapping ────────────────────────────────────
-const VARIANT_COLORS = {
-  critical: chartColors.severity.critical,    // #ef4444
-  high:     chartColors.severity.high,        // #f97316
-  medium:   chartColors.severity.medium,      // #eab308
-  low:      chartColors.severity.low,         // #3b82f6
-  info:     chartColors.series[4],            // cyan-ish from chartColors palette
-  primary:  sidebarColors.primaryFrom,        // #3b82f6
-  success:  sidebarColors.successcolor,        // green-500 (no semantic token exists)
-  warning:  sidebarColors.warning,            // amber/warning color
-  default:  sidebarColors.primary,            // default brand color
+// variant → design-system token (CSS variable reference)
+const VARIANT_TOKEN = {
+  critical: 'var(--critical)',
+  high: 'var(--high)',
+  medium: 'var(--medium)',
+  low: 'var(--primary)', // historically blue
+  info: 'var(--chart-2)',
+  primary: 'var(--primary)',
+  success: 'var(--low)', // the green token
+  warning: 'var(--medium)',
+  default: 'var(--primary)',
 };
 
-// ─── metric font sizes ────────────────────────────────────────────────────────
 const METRIC_SIZE = {
-  sm: fontStyles.metric, // ~24px
-  md: fontStyles.metric2xl, // component-defined 2xl metric
-  lg: fontStyles.metricLarge, // ~48px
+  sm: 'text-2xl',
+  md: 'text-3xl',
+  lg: 'text-5xl',
 };
 
-// ─── component ───────────────────────────────────────────────────────────────
+const TREND_GLYPH = { up: '↑', down: '↓', flat: '→' };
+
 export default function StatsCard({
   title,
   value,
@@ -120,230 +50,119 @@ export default function StatsCard({
 }) {
   const [hovered, setHovered] = useState(false);
 
-  // Resolve accent color from prop → variant → primary fallback
-  const accentColor =
-    colorProp ||
-    (variant ? VARIANT_COLORS[variant] : null) ||
-    sidebarColors.primaryFrom;
-
-  // Format numeric values with locale separators
+  const accent =
+    colorProp || (variant && VARIANT_TOKEN[variant]) || 'var(--primary)';
   const formattedValue =
-    typeof value === 'number' ? value.toLocaleString() : (value ?? '—');
-
+    typeof value === 'number' ? value.toLocaleString() : value ?? '—';
   const isClickable = Boolean(onClick);
   const metricFont = METRIC_SIZE[size] || METRIC_SIZE.md;
+  const accentVar = { '--sc-accent': accent, ...style };
 
-  // ─── compact layout ─────────────────────────────────────────────────────────
-  // Horizontal row: [ Label (left, muted) | Value (right, accent color) ]
+  const hoverHandlers = isClickable
+    ? {
+        onMouseEnter: () => setHovered(true),
+        onMouseLeave: () => setHovered(false),
+        onClick,
+      }
+    : {};
+
+  // ─── compact: [ label | value ] row ───────────────────────────────
   if (shape === 'compact') {
     return (
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: `${spacing.sm} ${spacing.md}`,
-          cursor: isClickable ? 'pointer' : 'default',
-          transition: 'opacity 150ms ease',
-          ...style,
-        }}
-        onClick={onClick}
-        onMouseEnter={isClickable ? () => setHovered(true) : undefined}
-        onMouseLeave={isClickable ? () => setHovered(false) : undefined}
+        className={cn(
+          'flex items-center justify-between px-3 py-2',
+          isClickable && 'cursor-pointer'
+        )}
+        style={accentVar}
+        {...hoverHandlers}
       >
-        <div
-          style={{
-            ...fontStyles.caption,
-            color: sidebarColors.textSecondary,
-            fontWeight: '600',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-          }}
-        >
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           {title}
-        </div>
-        <div
-          style={{
-            ...fontStyles.metric,
-            color: accentColor,
-            ...fontStyles.smoothing,
-          }}
-        >
+        </span>
+        <span className="text-2xl font-bold tabular-nums text-[var(--sc-accent)]">
           {formattedValue}
-        </div>
+        </span>
       </div>
     );
   }
 
-  // ─── inline layout ──────────────────────────────────────────────────────────
+  // ─── inline: centered value + label, no border ────────────────────
   if (cardLayout === 'inline') {
     return (
       <div
-        style={{
-          padding: componentSpacing.card.comfortable,
-          textAlign: 'center',
-          cursor: isClickable ? 'pointer' : 'default',
-          transition: 'opacity 150ms ease',
-          ...style,
-        }}
-        onClick={onClick}
-        onMouseEnter={isClickable ? () => setHovered(true) : undefined}
-        onMouseLeave={isClickable ? () => setHovered(false) : undefined}
+        className={cn('p-5 text-center', isClickable && 'cursor-pointer')}
+        style={accentVar}
+        {...hoverHandlers}
       >
         <div
-          style={{
-            ...metricFont,
-            color: accentColor,
-            marginBottom: spacing.sm,
-            ...fontStyles.smoothing,
-          }}
+          className={cn(
+            'mb-1 font-bold tabular-nums text-[var(--sc-accent)]',
+            metricFont
+          )}
         >
           {formattedValue}
         </div>
-        <div
-          style={{
-            ...fontStyles.caption,
-            color: sidebarColors.textSecondary,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            fontWeight: '600',
-          }}
-        >
+        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           {title}
         </div>
       </div>
     );
   }
 
-  // ─── card layout ────────────────────────────────────────────────────────────
+  // ─── card layout ──────────────────────────────────────────────────
   return (
-    <div
-      className="group"
-      style={{
-        position: 'relative',
-        overflow: 'hidden',
-        backgroundColor: sidebarColors.backgroundSoft,
-        border: `1px solid ${
-          hovered && isClickable
-            ? withAlpha(accentColor, 0.5)
-            : sidebarColors.border
-        }`,
-        borderRadius: borderRadius.lg,
-        padding: `${spacing['2xl']} ${spacing.xl}`,
-        cursor: isClickable ? 'pointer' : 'default',
-        transform:
-          hovered && isClickable ? 'translateY(-2px)' : 'translateY(0)',
-        boxShadow:
-          hovered && isClickable
-            ? `0 8px 20px -4px ${withAlpha(accentColor, 0.2)}`
-            : 'none',
-        transition:
-          'border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease',
-        ...style,
-      }}
-      onMouseEnter={() => {
-        if (isClickable) setHovered(true);
-      }}
-      onMouseLeave={() => {
-        if (isClickable) setHovered(false);
-      }}
-      onClick={onClick}
+    <Card
+      className={cn(
+        'relative items-center gap-0 overflow-hidden p-6 text-center transition-all',
+        isClickable && 'cursor-pointer hover:-translate-y-0.5',
+        hovered && isClickable && 'border-[color:var(--sc-accent)]'
+      )}
+      style={accentVar}
+      {...hoverHandlers}
     >
-      {/* ── Icon ────────────────────────────────────────────────────────────── */}
       {Icon && (
         <div
+          className="mb-3 flex size-12 items-center justify-center rounded-lg border transition-transform"
           style={{
-            width: spacing['5xl'],
-            height: spacing['5xl'],
-            borderRadius: borderRadius.lg,
-            backgroundColor: withAlpha(accentColor, 0.08),
-            border: `1px solid ${withAlpha(accentColor, 0.2)}`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto',
-            marginBottom: spacing.md,
-            transition: 'transform 300ms ease',
+            backgroundColor:
+              'color-mix(in oklab, var(--sc-accent) 8%, transparent)',
+            borderColor:
+              'color-mix(in oklab, var(--sc-accent) 20%, transparent)',
             transform: hovered && isClickable ? 'scale(1.05)' : 'scale(1)',
           }}
         >
-          <Icon
-            style={{
-              width: layout.iconSize.lg,
-              height: layout.iconSize.lg,
-              color: accentColor,
-              strokeWidth: 2,
-            }}
-          />
+          <Icon className="size-6 text-[var(--sc-accent)]" strokeWidth={2} />
         </div>
       )}
 
-      {/* ── Label ───────────────────────────────────────────────────────────── */}
-      <div
-        style={{
-          ...fontStyles.bodySmall,
-          textAlign: 'center',
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          marginBottom: spacing.sm,
-          color: sidebarColors.textSecondary,
-          fontWeight: '500',
-        }}
-      >
+      <div className="mb-1 text-sm font-medium uppercase tracking-wider text-muted-foreground">
         {title}
       </div>
 
-      {/* ── Value ───────────────────────────────────────────────────────────── */}
-      <div
-        style={{
-          ...metricFont,
-          textAlign: 'center',
-          color: sidebarColors.textPrimary,
-          ...fontStyles.smoothing,
-        }}
-      >
+      <div className={cn('font-bold tabular-nums text-foreground', metricFont)}>
         {formattedValue}
       </div>
 
-      {/* ── Trend (optional) ────────────────────────────────────────────────── */}
       {trend && (
         <div
-          style={{
-            ...fontStyles.caption,
-            textAlign: 'center',
-            marginTop: spacing.xs,
-            color:
-              trend.direction === 'up'
-                ? chartColors.severity.high
-                : trend.direction === 'down'
-                  ? VARIANT_COLORS.success
-                  : sidebarColors.textSecondary,
-          }}
+          className={cn(
+            'mt-1 text-xs',
+            trend.direction === 'up' && 'text-high',
+            trend.direction === 'down' && 'text-low',
+            trend.direction === 'flat' && 'text-muted-foreground'
+          )}
         >
-          {trend.direction === 'up'
-            ? '↑'
-            : trend.direction === 'down'
-              ? '↓'
-              : '→'}{' '}
-          {trend.percent}%
+          {TREND_GLYPH[trend.direction] ?? '→'} {trend.percent}%
         </div>
       )}
 
-      {/* ── Bottom accent bar ───────────────────────────────────────────────── */}
       {accentBar && (
         <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: hovered && isClickable ? '4px' : '2px',
-            backgroundColor: accentColor,
-            opacity: 0.6,
-            transition: 'height 300ms ease',
-          }}
+          className="absolute inset-x-0 bottom-0 bg-[var(--sc-accent)] opacity-60 transition-all"
+          style={{ height: hovered && isClickable ? 4 : 2 }}
         />
       )}
-    </div>
+    </Card>
   );
 }

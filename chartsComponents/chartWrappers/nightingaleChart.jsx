@@ -128,7 +128,7 @@ export function NightingaleChartWrapper({
             borderColor: chartColors.ui.tooltipBorder,
             borderWidth: 1,
             extraCssText: `border-radius:8px;box-shadow:0 10px 26px ${withAlpha(sidebarColors.background, 0.55)};white-space:nowrap;`,
-            textStyle: { color: sidebarColors.textPrimary, ...fontStyles.bodySmall },
+            textStyle: { color: chartColors.ui.text, ...fontStyles.bodySmall },
             formatter: (param) => {
                 const n = String(param?.name ?? 'Unknown');
                 const v = Number.isFinite(param?.value) ? Number(param.value).toLocaleString() : '0';
@@ -136,7 +136,7 @@ export function NightingaleChartWrapper({
                 const pct = Number.isFinite(pv)
                     ? `${Number.isInteger(pv) ? pv : pv.toFixed(1)}%`
                     : '-';
-                return `<div style="padding:${chartTokens.tooltipPadY + 2}px ${chartTokens.tooltipPadX + 4}px;font-weight:${fontStyles.heading6?.fontWeight || 700};line-height:1.5;color:${sidebarColors.textPrimary};">${n}: <b>${v}</b> (${pct})</div>`;
+                return `<div style="padding:${chartTokens.tooltipPadY + 2}px ${chartTokens.tooltipPadX + 4}px;font-weight:${fontStyles.heading6?.fontWeight || 700};line-height:1.5;color:${chartColors.ui.text};">${n}: <b>${v}</b> (${pct})</div>`;
             },
         },
         legend: showLegend
@@ -145,7 +145,7 @@ export function NightingaleChartWrapper({
                   top: 'bottom',
                   left: 'center',
                   orient: 'horizontal',
-                  textStyle: { color: sidebarColors.textPrimary, ...fontStyles.bodySmall },
+                  textStyle: { color: chartColors.ui.text, ...fontStyles.bodySmall },
                   pageTextStyle: { color: sidebarColors.textSecondary },
                   pageIconColor: sidebarColors.primary,
                   pageIconInactiveColor: sidebarColors.textMuted,
@@ -171,7 +171,7 @@ export function NightingaleChartWrapper({
                           show: true,
                           readOnly: false,
                           textareaColor: sidebarColors.backgroundSoft,
-                          textColor: sidebarColors.textPrimary,
+                          textColor: chartColors.ui.text,
                           buttonColor: sidebarColors.primary,
                       },
                       restore: { show: true },
