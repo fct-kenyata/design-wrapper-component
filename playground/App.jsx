@@ -393,7 +393,7 @@ function Gallery({ view, setView, dark, setDark }) {
   }));
 
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={false}>
       <Sidebar
         menuItems={menuItems}
         logo={logoUrl}

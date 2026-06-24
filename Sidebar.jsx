@@ -120,11 +120,41 @@ const Sidebar = ({
   logo,
   title,
   subtitle,
+  logoHref,
+  onLogoClick,
   onOpenChange,
   showLogout = false,
   onLogout,
 }) => {
   const { open } = useSidebar();
+
+  // Header brand block — logo + title + subtitle, sized/styled to match the
+  // ti-dev AppSidebar (orbitron title, logo shrinks in icon mode).
+  const headerContent = (
+    <>
+      {logo && (
+        <img
+          src={logo}
+          alt={title || "logo"}
+          className="size-9 shrink-0 object-contain transition-[width,height] duration-200 group-data-[collapsible=icon]:size-8"
+        />
+      )}
+      {(title || subtitle) && (
+        <div className="grid min-w-0 flex-1 text-left leading-tight">
+          {title && (
+            <span className="truncate font-orbitron text-sm font-semibold text-sidebar-foreground">
+              {title}
+            </span>
+          )}
+          {subtitle && (
+            <span className="truncate text-xs text-sidebar-foreground/70">
+              {subtitle}
+            </span>
+          )}
+        </div>
+      )}
+    </>
+  );
 
   // Preserve the legacy onOpenChange contract (host offsets / reacts to state).
   React.useEffect(() => {
@@ -141,26 +171,20 @@ const Sidebar = ({
 
   return (
     <SidebarRoot collapsible="icon">
-      <SidebarHeader>
-        <div className="flex items-center gap-2 p-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1">
-          {logo && (
-            <img
-              src={logo}
-              alt={title || "logo"}
-              className="size-11 shrink-0 rounded-md object-contain transition-[width,height] duration-200 group-data-[collapsible=icon]:size-9"
-            />
-          )}
-          {(title || subtitle) && (
-            <div className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
-              {title && (
-                <span className="truncate text-sm font-semibold text-sidebar-foreground">{title}</span>
-              )}
-              {subtitle && (
-                <span className="truncate text-xs text-sidebar-foreground/70">{subtitle}</span>
-              )}
-            </div>
-          )}
-        </div>
+      <SidebarHeader className="group-data-[collapsible=icon]:h-14 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:py-0">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild={Boolean(logoHref)}
+              size="lg"
+              tooltip={title || undefined}
+              onClick={!logoHref && typeof onLogoClick === "function" ? onLogoClick : undefined}
+              className="group-data-[collapsible=icon]:p-0!"
+            >
+              {logoHref ? <Link to={logoHref}>{headerContent}</Link> : headerContent}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
 
       <SidebarContent>
